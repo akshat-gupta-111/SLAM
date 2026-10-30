@@ -1,73 +1,99 @@
 # ==============================================================================
-# Industrial IMU Configuration Profile (MPU6050)
+# Industrial IMU & EKF Configuration Profile (MPU6050 — 100% SI Units)
 # Generated: 2026-10-30
 # Platform: NVIDIA Jetson Orin Nano / Linux IIO High-Speed Interface
-# Description: Sensor profile containing factory scale variables, static biases, 
-#              experimentally determined noise metrics, and spatial kinematics.
+# Units Policy: ALL values used by EKF are strictly in SI units:
+#               - Distance: meters (m)
+#               - Time: seconds (s)
+#               - Angle: radians (rad)
+#               - Angular Velocity: radians per second (rad/s)
+#               - Linear Acceleration: meters per second squared (m/s^2)
 # ==============================================================================
 
 imu_metadata:
   sensor_model: "MPU6050"
   interface: "I2C / Linux c250000.i2c / Bus 7"
-  default_address: "0x68"
+  default_address: 0x68
   expected_sampling_rate_hz: 180.0
+  expected_dt_seconds: 0.0055555556      # 1.0 / 180.0 Hz (5.56 ms)
 
-# Kinematic Rigid Body Transformation (TF) Relative to Robot Base Link Origin
-# Used to eliminate lever-arm effects: a_true = a_imu - alpha x r - w x (w x r)
+# Kinematic Rigid Body Transformation (TF) Relative to Robot Base Footprint (0, 0, 0)
 spatial_extrinsics:
   frame_id: "imu_link"
   parent_frame_id: "base_link"
   translation_meters:
-    x: 0.00
-    y: 0.00
-    z: 0.15                         # 15 cm vertical Z-axis lever-arm offset
-  rotation_euler_degrees:
+    x: 0.00                              # Dead-center horizontally (zero lever arm)
+    y: 0.00                              # Dead-center horizontally (zero lever arm)
+    z: 0.15                              # 15 cm above floor on rigid baseplate
+  rotation_euler_radians:
     roll: 0.0
     pitch: 0.0
     yaw: 0.0
 
-# Scale Factors to convert raw 16-bit signed integers to SI physical units
+# Scale Factors to convert raw 16-bit signed integers DIRECTLY to SI units
 scale_factors:
   accelerometer:
     setting: "+/- 2g"
-    multiplier: 16384.0          # LSB per g (divide raw value by this)
-    target_gravity_mps2: 9.80665 # Earth normal gravity vector scale
+    lsb_per_g: 16384.0
+    gravity_mps2: 9.80665
+    # Multiply raw 16-bit integer by raw_to_mps2 to get m/s^2 directly: (9.80665 / 16384.0)
+    raw_to_mps2: 0.000598550415
   gyroscope:
     setting: "+/- 250 deg/s"
-    multiplier: 131.0            # LSB per deg/s (divide raw value by this)
+    lsb_per_degs: 131.0
+    deg_to_rad: 0.017453292519943295     # pi / 180.0
+    # Multiply raw 16-bit integer by raw_to_rads to get rad/s directly: (pi / 180.0) / 131.0
+    raw_to_rads: 0.00013323124061
 
-# Static Hardware Biases (Offsets calculated during stationary window)
-# Subtract these values from your raw converted readings to centre data at 0.00
-static_calibration_offsets:
-  accelerometer_bias:
-    ax: -0.3710150660644529      # m/s²
-    ay: 0.08687600144042967      # m/s²
-    az: 0.21896410703125468      # m/s² (Bias relative to perfect 1g frame)
-  gyroscope_bias:
-    gx: -9.91088549618321        # °/s
-    gy: -0.32137404580152634     # °/s
-    gz: 1.781374045801527        # °/s
+# Static Hardware Biases in SI Units (Subtract from SI-converted sensor readings)
+static_calibration_offsets_si:
+  accelerometer_bias_mps2:
+    ax: -0.3710150660644529              # m/s^2
+    ay: 0.08687600144042967              # m/s^2
+    az: 0.21896410703125468              # m/s^2 (relative to +9.80665 m/s^2 gravity)
+  gyroscope_bias_rads:
+    gx: -0.17297758672472284             # rad/s  (converted from -9.9108855 deg/s)
+    gy: -0.005609034974689715            # rad/s  (converted from -0.3213740 deg/s)
+    gz: 0.03109084255686214              # rad/s  (converted from +1.7813740 deg/s)
 
-# Statistical Characterization of Additive White Gaussian Noise (AWGN)
-# Map these values directly to your Kalman Filter Covariance Matrices (R and Q)
-noise_characterization:
-  accelerometer_variance:        # Covariance Matrix 'R' Diagonal [m/s²]^2
+# EKF Measurement Noise Covariance R_k and Process Noise Q_k (Strictly SI Units)
+ekf_Matrices_si:
+  # State vector order: [x (m), y (m), theta (rad), v (m/s), omega (rad/s)]^T
+  state_dimension: 5
+
+  # Initial state uncertainty diagonal P_0: [m^2, m^2, rad^2, (m/s)^2, (rad/s)^2]
+  initial_P_diagonal: [0.01, 0.01, 0.01, 0.01, 0.01]
+
+  # Process Noise Q_k diagonal per second: [m^2, m^2, rad^2, (m/s)^2, (rad/s)^2]
+  process_noise_Q_diagonal: [0.001, 0.001, 0.0005, 0.01, 0.001]
+
+  # IMU Measurement Matrix H_k^imu (observes 5th state variable: omega)
+  imu_H_matrix:
+    - [0.0, 0.0, 0.0, 0.0, 1.0]
+
+  # IMU Measurement Noise Covariance R_k^imu in (rad/s)^2
+  # Converted from 0.050617 (deg/s)^2 * (pi / 180)^2 = 1.54188e-5 (rad/s)^2
+  imu_R_matrix:
+    - [0.0000154188]
+
+  # Full 3-axis variances in SI units (for reference or 3D extensions)
+  accelerometer_variance_mps4:           # (m/s^2)^2
     x: 0.004777
     y: 0.001765
     z: 0.002336
-  gyroscope_variance:            # Covariance Matrix 'Q' Diagonal [°/s]^2
-    x: 0.030357
-    y: 0.025143
-    z: 0.050617
+  gyroscope_variance_rads2:              # (rad/s)^2 = (deg/s)^2 * 0.00030461742
+    x: 0.0000092473                      # from 0.030357 (deg/s)^2
+    y: 0.0000076590                      # from 0.025143 (deg/s)^2
+    z: 0.0000154188                      # from 0.050617 (deg/s)^2
 
-# Verification Reference Metrics
-# Ground truth sanity bounds observed while the sensor was stationary
-expected_stationary_bounds:
+# Stationary Verification Bounds in SI Units (Used by Stage 2 Verification Test)
+expected_stationary_bounds_si:
   accel_limits_mps2:
-    x_range: [-0.12, 0.10]
-    y_range: [-0.08, 0.11]
-    z_range: [9.68, 9.95]       # Centred exactly around 1g (~9.81 m/s²)
-  gyro_limits_degs:
-    x_range: [-0.4, 0.3]
-    y_range: [-0.3, 0.3]
-    z_range: [-0.6, 0.4]
+    x_range: [-0.12, 0.10]               # m/s^2
+    y_range: [-0.08, 0.11]               # m/s^2
+    z_range: [9.68, 9.95]                # m/s^2 (centered around +9.80665 m/s^2)
+  gyro_limits_rads:
+    x_range: [-0.00698, 0.00524]         # rad/s (converted from [-0.4, +0.3] deg/s)
+    y_range: [-0.00524, 0.00524]         # rad/s (converted from [-0.3, +0.3] deg/s)
+    z_range: [-0.01047, 0.00698]         # rad/s (converted from [-0.6, +0.4] deg/s)
+  stationary_deadband_rads: 0.002618     # 0.15 deg/s in rad/s (optional zero-clamp when still)
