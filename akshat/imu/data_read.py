@@ -11,7 +11,8 @@ process = subprocess.Popen(['sudo', './imu_worker'], stdout=subprocess.PIPE, tex
 try:
     for line in process.stdout:
         parts = line.strip().split(',')
-        if len(parts) != 7 or parts.startswith("Time"):
+        # FIX: Check parts[0] instead of the whole list object
+        if len(parts) != 7 or parts[0].startswith("Time"):
             continue
         
         # Unpack binary string values into physical variables
