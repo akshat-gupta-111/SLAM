@@ -40,7 +40,8 @@ print("🚀 Kinematic Transform Active. Streaming true 'base_link' forces...\n")
 try:
     for line in process.stdout:
         parts = line.strip().split(',')
-        if len(parts) != 7 or parts.startswith("Time"):
+        # FIX: Explicitly checking the first element index of the split list
+        if len(parts) != 7 or parts[0].startswith("Time"):
             continue
         
         timestamp, raw_ax, raw_ay, raw_az, raw_gx, raw_gy, raw_gz = map(int, parts)
