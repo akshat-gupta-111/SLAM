@@ -1,0 +1,7 @@
+python3 ekf_server.py --yaml your_config.yaml
+
+python3 ekf_server.py --yaml your_config.yaml --skip-cal
+
+python3 ekf_server.py --yaml your_config.yaml --worker /path/to/imu_worker --no-sudo
+
+python3 ekf_server.py --yaml your_config.yaml --csv imu_telemetry.csv

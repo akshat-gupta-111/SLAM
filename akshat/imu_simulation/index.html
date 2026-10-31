@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cylindrical Robot IMU EKF Visualizer (22cm x 66cm | IMU @ 15cm)</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --panel: rgba(15, 23, 42, 0.88);
+      --border: #1e293b;
+      --cyan: #38bdf8;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --green: #10b981;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      height: 100vh;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas:active {
+      cursor: grabbing;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 360px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    .hud-right {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 340px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+    h1 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--cyan);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      box-shadow: 0 0 8px var(--green);
+    }
+    .status-dot.calibrating {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+    .status-dot.offline {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+    .subtitle {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cal-banner {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--amber);
+      color: #fde68a;
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 11px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .metric-box {
+      background: rgba(2, 6, 23, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .metric-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .metric-val {
+      font-size: 13px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: var(--text);
+    }
+    .metric-val.ekf { color: var(--cyan); }
+    .metric-val.raw { color: var(--amber); }
+    .metric-val.imu { color: var(--red); }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    button {
+      flex: 1;
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #334155;
+      border-radius: 5px;
+      padding: 7px 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button:hover {
+      border-color: var(--cyan);
+    }
+    button.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      font-weight: 600;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    .yaml-box {
+      background: rgba(2, 6, 23, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 10.5px;
+      color: #cbd5e1;
+      max-height: 195px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.4;
+      margin-top: 6px;
+    }
+    .footer-hint {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--panel);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+
+    <!-- Left Telemetry & Mode Controls -->
+    <div class="hud-overlay">
+      <h1>
+        <span>Cylinder EKF Visualizer</span>
+        <span id="connDot" class="status-dot" title="Stream Status"></span>
+      </h1>
+      <div class="subtitle" id="sourceSubtitle">
+        Body: Ø22cm × 66cm H (w/ wheels) | IMU: 15cm Z
+      </div>
+
+      <div id="calBanner" class="cal-banner">
+        ⚠️ DO NOT MOVE IMU - Calibrating offsets: <span id="calProgress">0/500</span>
+      </div>
+
+      <div style="font-size:10px; color:var(--muted); margin-bottom:4px; text-transform:uppercase;">
+        Render Mode
+      </div>
+      <div class="btn-group">
+        <button id="btnEkf" class="active" onclick="setMode('ekf')">EKF Clean</button>
+        <button id="btnRaw" onclick="setMode('raw')">Raw Noisy</button>
+        <button id="btnBoth" onclick="setMode('both')">Overlay Both</button>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric-box">
+          <div class="metric-label">EKF Roll / Pitch</div>
+          <div class="metric-val ekf" id="valEkfRP">0.00° / 0.00°</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Raw Roll / Pitch</div>
+          <div class="metric-val raw" id="valRawRP">0.00° / 0.00°</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">EKF Heading (Yaw)</div>
+          <div class="metric-val ekf" id="valEkfYaw">0.00°</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">IMU Lever Accel</div>
+          <div class="metric-val imu" id="valLever">0.000 m/s²</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Accel [m/s²] (X,Y,Z)</div>
+          <div class="metric-val" id="valAccel" style="font-size:11px;">0.00, 0.00, 9.81</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">Gyro [°/s] (X,Y,Z)</div>
+          <div class="metric-val" id="valGyro" style="font-size:11px;">0.0, 0.0, 0.0</div>
+        </div>
+      </div>
+
+      <div class="legend-item">
+        <span class="swatch" style="background: var(--cyan);"></span>
+        <span>EKF Stabilized Cylinder Wireframe (Ø22×66cm)</span>
+      </div>
+      <div class="legend-item">
+        <span class="swatch" style="background: var(--red); border-radius:50%;"></span>
+        <span>IMU Sensor Node (z = 15cm above ground)</span>
+      </div>
+      <div class="legend-item">
+        <span class="swatch" style="background: var(--amber);"></span>
+        <span>Raw Unfiltered Orientation (Ghost Wireframe)</span>
+      </div>
+    </div>
+
+    <!-- Right Controls & Active YAML Config -->
+    <div class="hud-right">
+      <h1><span>YAML & Calibration Config</span></h1>
+      <div class="subtitle" id="yamlSourceLabel">Loaded from YAML</div>
+      <div class="yaml-box" id="yamlDisplay">Connecting to Python EKF server on :8000...</div>
+
+      <div class="btn-group" style="margin-top: 12px; margin-bottom: 0;">
+        <button onclick="recalibrateImu()">Recalibrate (500 Samples)</button>
+        <button onclick="resetFilter()">Zero EKF Pose</button>
+      </div>
+    </div>
+
+    <div class="footer-hint">
+      Drag mouse to Orbit 3D Camera | Scroll to Zoom | Pivot: Wheel Axle (z = 4.5cm)
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const ROBOT = {
+      diameter: 22.0,
+      radius: 11.0,
+      height: 66.0,
+      imuHeight: 15.0,
+      wheelRadius: 4.5
+    };
+
+    let cam = {
+      yaw: -0.65,
+      pitch: 0.38,
+      distance: 155,
+      targetZ: 30
+    };
+
+    let renderMode = 'ekf';
+    let state = {
+      ekf: { roll: 0, pitch: 0, yaw: 0 },
+      raw: { roll: 0, pitch: 0, yaw: 0 },
+      bias: [0, 0, 0],
+      cov_trace: 0,
+      lever_accel: 0,
+      cal_done: true,
+      cal_count: 500,
+      source: 'imu_worker',
+      imu_raw: { ax: 0, ay: 0, az: 9.81, gx_deg: 0, gy_deg: 0, gz_deg: 0 }
+    };
+
+    function setMode(m) {
+      renderMode = m;
+      document.getElementById('btnEkf').classList.toggle('active', m === 'ekf');
+      document.getElementById('btnRaw').classList.toggle('active', m === 'raw');
+      document.getElementById('btnBoth').classList.toggle('active', m === 'both');
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth * window.devicePixelRatio;
+      canvas.height = window.innerHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let dragging = false;
+    let lastMouse = { x: 0, y: 0 };
+    canvas.addEventListener('mousedown', (e) => {
+      dragging = true;
+      lastMouse = { x: e.clientX, y: e.clientY };
+    });
+    window.addEventListener('mouseup', () => dragging = false);
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+      lastMouse = { x: e.clientX, y: e.clientY };
+      cam.yaw += dx * 0.007;
+      cam.pitch = Math.max(-0.2, Math.min(1.4, cam.pitch + dy * 0.007));
+    });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      cam.distance = Math.max(70, Math.min(320, cam.distance + e.deltaY * 0.08));
+    }, { passive: false });
+
+    function rotatePointBody(p, roll, pitch, yaw, pivotZ) {
+      let x = p.x;
+      let y = p.y;
+      let z = p.z - pivotZ;
+
+      const cr = Math.cos(roll), sr = Math.sin(roll);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+
+      let y1 = y * cr - z * sr;
+      let z1 = y * sr + z * cr;
+      let x1 = x;
+
+      let x2 = x1 * cp + z1 * sp;
+      let z2 = -x1 * sp + z1 * cp;
+      let y2 = y1;
+
+      let x3 = x2 * cy - y2 * sy;
+      let y3 = x2 * sy + y2 * cy;
+      let z3 = z2;
+
+      return { x: x3, y: y3, z: z3 + pivotZ };
+    }
+
+    function project3D(p) {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const fov = 560;
+
+      const tx = p.x;
+      const ty = p.y;
+      const tz = p.z - cam.targetZ;
+
+      const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+      const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+
+      const x1 = tx * sy + ty * cy;
+      const y1 = tx * cy - ty * sy;
+      const z1 = tz;
+
+      const xCam = x1;
+      const zCam = y1 * cp + z1 * sp + cam.distance;
+      const yCam = z1 * cp - y1 * sp;
+
+      if (zCam <= 5) return null;
+      const scale = fov / zCam;
+      return {
+        x: w / 2 + xCam * scale,
+        y: h / 2 - yCam * scale,
+        scale: scale
+      };
+    }
+
+    function drawLine3D(p1, p2, color, width = 1, dash = []) {
+      const s1 = project3D(p1);
+      const s2 = project3D(p2);
+      if (!s1 || !s2) return;
+      ctx.beginPath();
+      ctx.setLineDash(dash);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.moveTo(s1.x, s1.y);
+      ctx.lineTo(s2.x, s2.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawFloorGrid() {
+      const gridHalf = 70;
+      const step = 10;
+      for (let i = -gridHalf; i <= gridHalf; i += step) {
+        const isAxis = (i === 0);
+        const col = isAxis ? 'rgba(56, 189, 248, 0.35)' : 'rgba(148, 163, 184, 0.14)';
+        drawLine3D({ x: i, y: -gridHalf, z: 0 }, { x: i, y: gridHalf, z: 0 }, col, isAxis ? 1.5 : 1);
+        drawLine3D({ x: -gridHalf, y: i, z: 0 }, { x: gridHalf, y: i, z: 0 }, col, isAxis ? 1.5 : 1);
+      }
+    }
+
+    function drawCylinderBody(pose, style) {
+      const R = ROBOT.radius;
+      const H = ROBOT.height;
+      const imuZ = ROBOT.imuHeight;
+      const pivotZ = ROBOT.wheelRadius;
+      const segments = 24;
+      const rings = [0, 15, 33, 50, 66];
+      const meridians = 12;
+
+      for (let rIdx = 0; rIdx < rings.length; rIdx++) {
+        const z = rings[rIdx];
+        const isTopOrBottom = (z === 0 || z === H);
+        const isImuRing = (z === imuZ);
+        let ringColor = style.gridColor;
+        let lineW = 1.0;
+
+        if (isTopOrBottom) {
+          ringColor = style.outlineColor;
+          lineW = style.outlineWidth;
+        } else if (isImuRing && style.drawImu) {
+          ringColor = 'rgba(239, 68, 68, 0.55)';
+          lineW = 1.3;
+        }
+
+        let prevPt = null;
+        for (let i = 0; i <= segments; i++) {
+          const theta = (i / segments) * Math.PI * 2;
+          const localPt = { x: R * Math.cos(theta), y: R * Math.sin(theta), z: z };
+          const worldPt = rotatePointBody(localPt, pose.roll, pose.pitch, pose.yaw, pivotZ);
+          if (prevPt) {
+            drawLine3D(prevPt, worldPt, ringColor, lineW, style.dash);
+          }
+          prevPt = worldPt;
+        }
+      }
+
+      for (let m = 0; m < meridians; m++) {
+        const theta = (m / meridians) * Math.PI * 2;
+        const isCardinal = (m % 3 === 0);
+        const pBot = rotatePointBody({ x: R * Math.cos(theta), y: R * Math.sin(theta), z: 0 }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const pTop = rotatePointBody({ x: R * Math.cos(theta), y: R * Math.sin(theta), z: H }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        drawLine3D(
+          pBot,
+          pTop,
+          isCardinal ? style.outlineColor : style.gridColor,
+          isCardinal ? style.outlineWidth : 0.9,
+          style.dash
+        );
+      }
+
+      for (const zCap of [0, H]) {
+        const pX1 = rotatePointBody({ x: -R, y: 0, z: zCap }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const pX2 = rotatePointBody({ x: R, y: 0, z: zCap }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const pY1 = rotatePointBody({ x: 0, y: -R, z: zCap }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const pY2 = rotatePointBody({ x: 0, y: R, z: zCap }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        drawLine3D(pX1, pX2, style.gridColor, 1, style.dash);
+        drawLine3D(pY1, pY2, style.gridColor, 1, style.dash);
+      }
+
+      const wR = ROBOT.wheelRadius;
+      for (const sideY of [-R, R]) {
+        let prevW = null;
+        for (let i = 0; i <= 16; i++) {
+          const ang = (i / 16) * Math.PI * 2;
+          const lp = { x: wR * Math.cos(ang), y: sideY, z: wR + wR * Math.sin(ang) };
+          const wp = rotatePointBody(lp, pose.roll, pose.pitch, pose.yaw, pivotZ);
+          if (prevW) drawLine3D(prevW, wp, style.outlineColor, 1.4, style.dash);
+          prevW = wp;
+        }
+      }
+
+      const spineBot = rotatePointBody({ x: 0, y: 0, z: 0 }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+      const spineTop = rotatePointBody({ x: 0, y: 0, z: H }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+      drawLine3D(spineBot, spineTop, 'rgba(148, 163, 184, 0.35)', 1, [4, 4]);
+
+      if (style.drawImu) {
+        const imuWorld = rotatePointBody({ x: 0, y: 0, z: imuZ }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const imuProj = project3D(imuWorld);
+
+        const imuX1 = rotatePointBody({ x: -R, y: 0, z: imuZ }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const imuX2 = rotatePointBody({ x: R, y: 0, z: imuZ }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const imuY1 = rotatePointBody({ x: 0, y: -R, z: imuZ }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        const imuY2 = rotatePointBody({ x: 0, y: R, z: imuZ }, pose.roll, pose.pitch, pose.yaw, pivotZ);
+        drawLine3D(imuX1, imuX2, 'rgba(239, 68, 68, 0.45)', 1, [3, 3]);
+        drawLine3D(imuY1, imuY2, 'rgba(239, 68, 68, 0.45)', 1, [3, 3]);
+
+        if (imuProj) {
+          const grad = ctx.createRadialGradient(imuProj.x, imuProj.y, 2, imuProj.x, imuProj.y, 16);
+          grad.addColorStop(0, 'rgba(239, 68, 68, 0.95)');
+          grad.addColorStop(0.4, 'rgba(239, 68, 68, 0.4)');
+          grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(imuProj.x, imuProj.y, 16, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ef4444';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(imuProj.x, imuProj.y, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#fca5a5';
+          ctx.font = '11px monospace';
+          ctx.fillText('IMU (z=15cm)', imuProj.x + 10, imuProj.y + 4);
+        }
+
+        const topProj = project3D(spineTop);
+        if (topProj) {
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = '11px monospace';
+          ctx.fillText('Top (z=66cm, Ø22cm)', topProj.x + 10, topProj.y - 6);
+        }
+      }
+    }
+
+    function renderLoop() {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      drawFloorGrid();
+
+      if (renderMode === 'both') {
+        drawCylinderBody(state.raw, {
+          outlineColor: 'rgba(245, 158, 11, 0.45)',
+          gridColor: 'rgba(245, 158, 11, 0.18)',
+          outlineWidth: 1.2,
+          dash: [3, 3],
+          drawImu: false
+        });
+      }
+
+      if (renderMode === 'raw') {
+        drawCylinderBody(state.raw, {
+          outlineColor: 'rgba(245, 158, 11, 0.95)',
+          gridColor: 'rgba(245, 158, 11, 0.35)',
+          outlineWidth: 1.8,
+          dash: [],
+          drawImu: true
+        });
+      } else {
+        drawCylinderBody(state.ekf, {
+          outlineColor: 'rgba(56, 189, 248, 0.95)',
+          gridColor: 'rgba(56, 189, 248, 0.32)',
+          outlineWidth: 1.8,
+          dash: [],
+          drawImu: true
+        });
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+    requestAnimationFrame(renderLoop);
+
+    const RAD2DEG = 180 / Math.PI;
+    function connectStream() {
+      const es = new EventSource('/stream');
+      const dot = document.getElementById('connDot');
+      const banner = document.getElementById('calBanner');
+
+      es.onopen = () => {
+        dot.classList.remove('offline');
+      };
+
+      es.onmessage = (evt) => {
+        const data = JSON.parse(evt.data);
+        state = data;
+
+        document.getElementById('sourceSubtitle').textContent =
+          `Source: ${data.source} | Body: Ø22×66cm | IMU: 15cm`;
+
+        if (!data.cal_done) {
+          banner.style.display = 'block';
+          dot.classList.add('calibrating');
+          document.getElementById('calProgress').textContent = `${data.cal_count}/500`;
+        } else {
+          banner.style.display = 'none';
+          dot.classList.remove('calibrating');
+        }
+
+        document.getElementById('valEkfRP').textContent =
+          `${(data.ekf.roll * RAD2DEG).toFixed(2)}° / ${(data.ekf.pitch * RAD2DEG).toFixed(2)}°`;
+        document.getElementById('valRawRP').textContent =
+          `${(data.raw.roll * RAD2DEG).toFixed(2)}° / ${(data.raw.pitch * RAD2DEG).toFixed(2)}°`;
+        document.getElementById('valEkfYaw').textContent =
+          `${(data.ekf.yaw * RAD2DEG).toFixed(2)}°`;
+        document.getElementById('valLever').textContent =
+          `${data.lever_accel.toFixed(3)} m/s²`;
+        document.getElementById('valAccel').textContent =
+          `${data.imu_raw.ax.toFixed(2)}, ${data.imu_raw.ay.toFixed(2)}, ${data.imu_raw.az.toFixed(2)}`;
+        document.getElementById('valGyro').textContent =
+          `${data.imu_raw.gx_deg.toFixed(1)}, ${data.imu_raw.gy_deg.toFixed(1)}, ${data.imu_raw.gz_deg.toFixed(1)}`;
+      };
+
+      es.onerror = () => {
+        dot.classList.add('offline');
+      };
+    }
+
+    async function fetchYamlConfig() {
+      try {
+        const res = await fetch('/config');
+        const cfg = await res.json();
+        document.getElementById('yamlSourceLabel').textContent = `File: ${cfg.yaml_path}`;
+        document.getElementById('yamlDisplay').textContent = JSON.stringify(cfg, null, 2);
+      } catch (e) {
+        document.getElementById('yamlDisplay').textContent = 'Could not load /config from server.';
+      }
+    }
+
+    function recalibrateImu() {
+      fetch('/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recalibrate: true })
+      }).then(() => setTimeout(fetchYamlConfig, 500));
+    }
+
+    function resetFilter() {
+      fetch('/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true })
+      });
+    }
+
+    connectStream();
+    fetchYamlConfig();
+  </script>
+</body>
+</html>
