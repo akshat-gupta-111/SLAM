@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mecanum Odometry Visualizer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js (Core & Controls) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0a0f16;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .font-mono {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Glassmorphism & Brutalist Panel Styling */
+        .glass-panel {
+            background: rgba(13, 20, 30, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(20, 184, 166, 0.3); /* Teal border */
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(20, 184, 166, 0.05);
+            border-radius: 12px;
+        }
+
+        .data-card {
+            background: rgba(8, 12, 18, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.2); /* Electric blue border */
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.02);
+            transition: all 0.2s ease;
+        }
+
+        .data-card:hover {
+            border-color: rgba(0, 240, 255, 0.5);
+            box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.1), 0 0 10px rgba(0, 240, 255, 0.1);
+        }
+
+        .text-glow-blue {
+            color: #00f0ff;
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+        }
+
+        .text-glow-teal {
+            color: #14b8a6;
+            text-shadow: 0 0 8px rgba(20, 184, 166, 0.6);
+        }
+
+        .text-glow-red {
+            color: #ff003c;
+            text-shadow: 0 0 8px rgba(255, 0, 60, 0.6);
+        }
+
+        /* Allow interacting with 3D canvas behind the UI */
+        .ui-layer {
+            pointer-events: none;
+        }
+        .ui-interactive {
+            pointer-events: auto;
+        }
+
+        /* Custom Scrollbar for YAML block */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(20, 184, 166, 0.4); 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(20, 184, 166, 0.8); 
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 w-full h-full"></div>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer absolute inset-0 w-full h-full flex justify-between p-6">
+        
+        <!-- Left Sidebar: Telemetry -->
+        <div class="glass-panel ui-interactive w-80 h-fit p-5 flex flex-col gap-5">
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <h1 class="text-sm font-bold tracking-widest text-glow-blue uppercase">Mecanum Odom Visualizer</h1>
+                    <div class="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse shadow-[0_0_8px_#00f0ff]"></div>
+                </div>
+                <p class="text-xs text-gray-400">Source: rf2o_laser_odometry | Model: Holonomic</p>
+            </div>
+
+            <!-- Pose Data -->
+            <div class="flex flex-col gap-3">
+                <div class="data-card p-3">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Global Position (X, Y)</p>
+                    <div class="flex justify-between items-end font-mono text-lg">
+                        <span id="pos-x" class="text-glow-blue">0.00</span>
+                        <span class="text-gray-600">/</span>
+                        <span id="pos-y" class="text-glow-blue">0.00</span>
+                        <span class="text-xs text-gray-500 mb-1 ml-1">m</span>
+                    </div>
+                </div>
+
+                <div class="data-card p-3">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">EKF Heading (Yaw / Theta)</p>
+                    <div class="flex items-end font-mono text-lg">
+                        <span id="pos-yaw" class="text-glow-teal">0.00°</span>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-gray-800 my-1">
+
+            <!-- Velocity Data -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="data-card p-3">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Velocity Vx</p>
+                    <div class="font-mono text-glow-blue text-sm">
+                        <span id="vel-vx">0.00</span> <span class="text-[10px] text-gray-500">m/s</span>
+                    </div>
+                </div>
+                <div class="data-card p-3">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Velocity Vy</p>
+                    <div class="font-mono text-glow-blue text-sm">
+                        <span id="vel-vy">0.00</span> <span class="text-[10px] text-gray-500">m/s</span>
+                    </div>
+                </div>
+                <div class="data-card p-3 col-span-2">
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Yaw Rate (Omega ω)</p>
+                    <div class="font-mono text-glow-teal text-sm">
+                        <span id="vel-omega">0.00</span> <span class="text-[10px] text-gray-500">rad/s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-2 flex flex-col gap-2 text-[11px] text-gray-400">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded bg-[#00f0ff] opacity-80"></div>
+                    <span>Holonomic Cylinder Base (base_link)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full border-2 border-[#ff003c]"></div>
+                    <span>IMU Sensor Node (z = 15cm)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar: Config & Controls -->
+        <div class="flex flex-col gap-6">
+            <!-- YAML Panel -->
+            <div class="glass-panel ui-interactive w-96 h-fit p-5">
+                <h2 class="text-xs font-bold tracking-widest text-glow-teal uppercase mb-1">YAML & Calibration Config</h2>
+                <p class="text-[10px] text-gray-400 mb-3">File: rf2o_config.yaml</p>
+                
+                <div class="bg-[#05080c] rounded p-3 font-mono text-[11px] leading-relaxed text-gray-300 border border-gray-800 overflow-y-auto max-h-64">
+<span class="text-gray-500"># Measurement Noise Covariance Matrix</span>
+<span class="text-teal-400">velocity_variances:</span>
+  <span class="text-blue-300">vx_mps2:</span> <span class="text-yellow-200">0.000004894</span>
+  <span class="text-blue-300">vy_mps2:</span> <span class="text-yellow-200">0.000003122</span>
+  <span class="text-blue-300">omega_rads2:</span> <span class="text-yellow-200">0.000023821</span>
+
+<span class="text-gray-500"># Direct diagonal injection (R_k)</span>
+<span class="text-teal-400">R_matrix_diagonal:</span> 
+  - <span class="text-yellow-200">0.000004894</span>
+  - <span class="text-yellow-200">0.000003122</span>
+  - <span class="text-yellow-200">0.000023821</span>
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="glass-panel ui-interactive w-96 p-5 flex flex-col gap-4">
+                <button id="btn-reset" class="w-full py-2 bg-gray-800 hover:bg-teal-900 border border-teal-500 rounded text-xs font-bold text-teal-300 transition-colors uppercase tracking-widest shadow-[0_0_10px_rgba(20,184,166,0.2)] hover:shadow-[0_0_15px_rgba(20,184,166,0.6)]">
+                    Reset Odometry
+                </button>
+                <div>
+                    <h2 class="text-xs font-bold tracking-widest text-gray-300 uppercase mb-3">Mecanum Drive Controls</h2>
+                    <div class="grid grid-cols-2 gap-y-3 text-xs font-mono">
+                        <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-600 text-white">W</kbd> / <kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-600 text-white">S</kbd></div>
+                        <div class="text-gray-400 flex items-center">Forward / Backward</div>
+                    <div class="flex items-center gap-2"><kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-600 text-white">Q</kbd> / <kbd class="px-2 py-1 bg-gray-800 rounded border border-gray-600 text-white">E</kbd></div>
+                    <div class="text-gray-400 flex items-center">Rotate Left / Right</div>
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-800 text-[10px] text-gray-500">
+                    Click & drag background to orbit camera. Scroll to zoom.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // ==========================================
+        // 2. ROBOT GEOMETRY & TRAIL
+        // ==========================================
+        const robotGroup = new THREE.Group();
+
+        // Base Box (Wireframe Chassis)
+        const boxGeom = new THREE.BoxGeometry(22, 10, 30); // Width, Height, Length
+        const boxMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00f0ff, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.6 
+        });
+        const chassis = new THREE.Mesh(boxGeom, boxMat);
+        chassis.position.y = 5; // Sit on ground
+        robotGroup.add(chassis);
+
+        // Front Direction Indicator (Arrow pointing "Forward")
+        // In our mapping, Robot X (Forward) maps to Three -Z
+        const dirGeom = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 5, 0),
+            new THREE.Vector3(0, 5, -25) // Pointing in -Z direction
+        ]);
+        const dirMat = new THREE.LineBasicMaterial({ color: 0xff003c, linewidth: 3 });
+        const dirLine = new THREE.Line(dirGeom, dirMat);
+        robotGroup.add(dirLine);
+
+        // Arrow Tip
+        const tipGeom = new THREE.ConeGeometry(3, 8, 4);
+        const tipMat = new THREE.MeshBasicMaterial({ color: 0xff003c });
+        const tip = new THREE.Mesh(tipGeom, tipMat);
+        tip.position.set(0, 5, -25);
+        tip.rotation.x = -Math.PI / 2; // Point along -Z
+        robotGroup.add(tip);
+
+        scene.add(robotGroup);
+
+        // Odometry Path Trail Setup
+        const maxTrailPts = 2000;
+        const trailGeom = new THREE.BufferGeometry();
+        const trailPositions = new Float32Array(maxTrailPts * 3);
+        trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+        const trailMat = new THREE.LineBasicMaterial({ color: 0x14b8a6, transparent: true, opacity: 0.7 });
+        const trailLine = new THREE.Line(trailGeom, trailMat);
+        scene.add(trailLine);
+        
+        let trailCount = 0;
+
+        // ==========================================
+        // 3. HOLONOMIC KINEMATICS & INPUT STATE
+        // ==========================================
+        // 4. DOM ELEMENT BINDINGS & LISTENERS
+        // ==========================================
+        const elPosX = document.getElementById('pos-x');
+        const elPosY = document.getElementById('pos-y');
+        const elYaw = document.getElementById('pos-yaw');
+        const elVx = document.getElementById('vel-vx');
+        const elVy = document.getElementById('vel-vy');
+        const elOmega = document.getElementById('vel-omega');
+
+        // Reset Button Logic
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            state.x = 0;
+            state.y = 0;
+            state.yaw = 0;
+            state.vx = 0;
+            state.vy = 0;
+            state.omega = 0;
+            target.vx = 0;
+            target.vy = 0;
+            target.omega = 0;
+            trailCount = 0; // Clear path trail
+            trailGeom.setDrawRange(0, 0);
+        });
+
+        // ==========================================
+        // 4. DOM ELEMENT BINDINGS
+        // ==========================================
+        const elPosX = document.getElementById('pos-x');
+        const elPosY = document.getElementById('pos-y');
+        const elYaw = document.getElementById('pos-yaw');
+        const elVx = document.getElementById('vel-vx');
+        const elVy = document.getElementById('vel-vy');
+        const elOmega = document.getElementById('vel-omega');
+
+        // ==========================================
+        // 5. ANIMATION & PHYSICS LOOP
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            // 1. Process Inputs into Target Velocities
+            target.vx = 0;
+            target.vy = 0;
+            target.omega = 0;
+
+            if (keys.w) target.vx = MAX_SPEED;
+            if (keys.s) target.vx = -MAX_SPEED;
+            if (keys.a) target.vy = MAX_SPEED;   // Y points left
+            if (keys.d) target.vy = -MAX_SPEED;
+            if (keys.q) target.omega = MAX_OMEGA;
+            if (keys.e) target.omega = -MAX_OMEGA;
+
+            // 2. Apply Acceleration/Smoothing to Current Velocities
+            state.vx += (target.vx - state.vx) * ACCEL * dt;
+            state.vy += (target.vy - state.vy) * ACCEL * dt;
+            state.omega += (target.omega - state.omega) * ACCEL * dt;
+
+            // Clamp extremely small values to zero to prevent drift UI jitter
+            if (Math.abs(state.vx) < 0.001) state.vx = 0;
+            if (Math.abs(state.vy) < 0.001) state.vy = 0;
+            if (Math.abs(state.omega) < 0.001) state.omega = 0;
+
+            // 3. Holonomic Kinematics Update (Robot Frame -> Global Frame)
+            // dx = (vx * cos(yaw) - vy * sin(yaw)) * dt
+            // dy = (vx * sin(yaw) + vy * cos(yaw)) * dt
+            const dx = (state.vx * Math.cos(state.yaw) - state.vy * Math.sin(state.yaw)) * dt;
+            const dy = (state.vx * Math.sin(state.yaw) + state.vy * Math.cos(state.yaw)) * dt;
+            
+            state.x += dx;
+            state.y += dy;
+            state.yaw += state.omega * dt;
+
+            // Normalize Yaw to -PI to PI
+            state.yaw = Math.atan2(Math.sin(state.yaw), Math.cos(state.yaw));
+
+            // 4. Map Robot State to Three.js Visuals
+            // Three.js Map: X(Right), Y(Up), Z(Backward)
+            // Robot Map: X(Forward), Y(Left), Yaw(CCW)
+            // Conversion: 
+            // Three.Z = -(Robot.X * 100) -> 100 multiplier converts meters to cm scale in 3D
+            // Three.X = -(Robot.Y * 100)
+            // Three.Y_Rot = Robot.Yaw
+            robotGroup.position.z = -(state.x * 100);
+            robotGroup.position.x = -(state.y * 100);
+            robotGroup.rotation.y = state.yaw;
+
+            // Update Path Trail
+            if (Math.abs(state.vx) > 0.001 || Math.abs(state.vy) > 0.001 || Math.abs(state.omega) > 0.001) {
+                if (trailCount < maxTrailPts) {
+                    trailPositions[trailCount * 3] = robotGroup.position.x;
+                    trailPositions[trailCount * 3 + 1] = 0.5; // Slightly above ground
+                    trailPositions[trailCount * 3 + 2] = robotGroup.position.z;
+                    trailCount++;
+                    trailGeom.setDrawRange(0, trailCount);
+                    trailGeom.attributes.position.needsUpdate = true;
+                } else {
+                    // Shift array left (circular scroll effect when max points reached)
+                    for(let i = 1; i < maxTrailPts; i++) {
+                        trailPositions[(i-1) * 3] = trailPositions[i * 3];
+                        trailPositions[(i-1) * 3 + 1] = trailPositions[i * 3 + 1];
+                        trailPositions[(i-1) * 3 + 2] = trailPositions[i * 3 + 2];
+                    }
+                    trailPositions[(maxTrailPts - 1) * 3] = robotGroup.position.x;
+                    trailPositions[(maxTrailPts - 1) * 3 + 1] = 0.5;
+                    trailPositions[(maxTrailPts - 1) * 3 + 2] = robotGroup.position.z;
+                    trailGeom.attributes.position.needsUpdate = true;
+                }
+            }
+
+            // 5. Update DOM Telemetry Panels
+            elPosX.textContent = state.x.toFixed(2);
+            elPosY.textContent = state.y.toFixed(2);
+            elYaw.textContent = (state.yaw * (180 / Math.PI)).toFixed(2) + '°';
+            
+            elVx.textContent = (state.vx > 0 ? '+' : '') + state.vx.toFixed(2);
+            elVy.textContent = (state.vy > 0 ? '+' : '') + state.vy.toFixed(2);
+            elOmega.textContent = (state.omega > 0 ? '+' : '') + state.omega.toFixed(2);
+
+            // Dynamically change color intensity based on speed
+            const isMoving = Math.abs(state.vx) > 0.1 || Math.abs(state.vy) > 0.1;
+            const isRotating = Math.abs(state.omega) > 0.1;
+            
+            boxMat.opacity = isMoving ? 0.9 : 0.6;
+            boxMat.color.setHex(isMoving ? 0xffffff : 0x00f0ff);
+            tipMat.color.setHex(isRotating ? 0xffaaaa : 0xff003c);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Handle Window Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start Loop
+        window.onload = () => {
+            animate();
+        };
+    </script>
+</body>
+</html>
