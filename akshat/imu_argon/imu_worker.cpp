@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>
 #include <cstdint>
 #include <fcntl.h>
 #include <unistd.h>
@@ -22,6 +23,9 @@ bool write_reg(int file, uint8_t reg, uint8_t val) {
 }
 
 int main() {
+    // Force line-buffered stdout even when spawned inside Python subprocess.PIPE
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+
     // 1. Elevate thread to Real-Time Priority
     struct sched_param param;
     param.sched_priority = 80;
@@ -50,8 +54,6 @@ int main() {
         return 1;
     }
 
-    // Disable stdio buffering for instant pipe throughput
-    std::ios_base::sync_with_stdio(false);
     std::cout << "Time_ns,ax,ay,az,gx,gy,gz\n" << std::flush;
 
     uint8_t reg = ACCEL_XOUT_H;
@@ -72,10 +74,11 @@ int main() {
         int16_t gy = static_cast<int16_t>((static_cast<uint16_t>(data[10]) << 8) | data[11]);
         int16_t gz = static_cast<int16_t>((static_cast<uint16_t>(data[12]) << 8) | data[13]);
 
+        // Flush immediately so Python receives each reading with zero OS pipe buffering delay
         std::cout << ts << "," << ax << "," << ay << "," << az
-                  << "," << gx << "," << gy << "," << gz << "\n";
+                  << "," << gx << "," << gy << "," << gz << "\n" << std::flush;
 
-        // 200 Hz loop (5000 us)
+        // ~180-200 Hz loop (5000 us sleep)
         std::this_thread::sleep_for(std::chrono::microseconds(5000));
     }
 
