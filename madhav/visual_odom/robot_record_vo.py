@@ -117,8 +117,8 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                             t_best = Ts[0]
                             
                             # Scale Translation for linear velocities
-                            vx = float(t_best[0]) * ROBOT_BASE_SPEED_MPS
-                            vy = float(t_best[1]) * ROBOT_BASE_SPEED_MPS
+                            vx = float(t_best[0].item()) * ROBOT_BASE_SPEED_MPS
+                            vy = float(t_best[1].item()) * ROBOT_BASE_SPEED_MPS
 
                             # Extract stable planar yaw rotation directly from rotation matrix
                             delta_yaw = np.arctan2(R_best[1, 0], R_best[0, 0])
