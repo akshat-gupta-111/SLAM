@@ -9,18 +9,15 @@ from threading import Thread
 # --- Asynchronous High-Speed Frame Capture Buffer ---
 class VideoStreamAsync:
     def __init__(self, src=0, width=640, height=480):
-        # Removed Windows-only cv2.CAP_DSHOW; Linux uses V4L2 natively by default
         self.stream = cv2.VideoCapture(src)
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.stream.set(cv2.CAP_PROP_FPS, 30)
-        
         self.grabbed, self.frame = self.stream.read()
         self.started = False
 
     def start(self):
-        if self.started:
-            return self
+        if self.started: return self
         self.started = True
         self.thread = Thread(target=self.update, args=())
         self.thread.daemon = True
@@ -44,61 +41,58 @@ class VideoStreamAsync:
 
 # --- Main Visual Odometry Telemetry Node ---
 def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
-    # Initialize background camera worker thread
     vs = VideoStreamAsync(src=camera_index).start()
-    time.sleep(1.0)  # Allow hardware exposure stabilization window
+    time.sleep(1.0) # Hardware stabilization
 
-    # Camera Calibration Parameters (Placeholder: Replace with your exact camera matrix values)
+    # Camera Calibration Parameters
     K = np.array([[615.0, 0.0, 320.0], [0.0, 615.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
     
-    # --- PHYSICAL REAL-WORLD SCALE FACTOR ---
+    # PHYSICAL REAL-WORLD SCALE FACTOR
     ROBOT_BASE_SPEED_MPS = 0.3 
+    
+    # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: 0.0 = completely static, 1.0 = raw/unfiltered)
+    ALPHA = 0.25
 
-    # --- TRACKER CONFIGURATIONS ---
     feature_params = dict(maxCorners=100, qualityLevel=0.03, minDistance=25, blockSize=3)
-    lk_params = dict(winSize=(15, 15), maxLevel=2,
-                     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.03))
+    lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.03))
 
     last_gray = None
     last_time = time.time()
+    
+    # Track the last stable angular velocity to apply the low-pass filter
+    filtered_wz = 0.0
 
-    # Open CSV telemetry log file
     csv_file = open(output_csv, mode='w', newline='')
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp", "dt", "vx", "vy", "wz", "inliers"])
 
     print("\n[INFO] Multithreaded Visual Odometry Node active on Jetson Orin.")
-    print("[INFO] Headless operational state running. Press Ctrl+C in terminal to stop and save.")
+    print("[INFO] Headless operational state running. Press Ctrl+C in terminal to stop.")
 
     try:
         while True:
             frame = vs.read()
-            if frame is None:
-                continue
+            if frame is None: continue
 
             current_time = time.time()
-            dt = current_time - last_time  # Fixed math operator
-            
-            # --- DIFFERENTIAL FRAME-SKIPPING GATE ---
+            dt = current_time - last_time
+
             if dt < 0.05:
-                time.sleep(0.002) # Prevent CPU thread starvation
+                time.sleep(0.002)
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
             if last_gray is None:
                 last_gray = gray
                 last_time = current_time
                 continue
 
-            # Detect keypoints on reference baseline frame
             p1 = cv2.goodFeaturesToTrack(last_gray, **feature_params)
             if p1 is None or len(p1) < 12:
                 last_gray = gray
                 last_time = current_time
                 continue
 
-            # Track keypoints across time delta
             p2, st, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, p1, None, **lk_params)
             good_p1 = p1[st == 1]
             good_p2 = p2[st == 1]
@@ -109,23 +103,29 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 E, mask = cv2.findEssentialMat(good_p2, good_p1, K, method=cv2.RANSAC, prob=0.99, threshold=1.0)
                 if E is not None and mask is not None:
                     inliers_count = int(np.sum(mask))
-                    
                     if inliers_count > 10:
                         _, R, t, _ = cv2.recoverPose(E, good_p2, good_p1, K, mask=mask)
                         
-                        t_dx = float(t[0][0])
-                        t_dy = float(t[1][0])
+                        # Scale Translation
+                        vx = float(t[0][0]) * ROBOT_BASE_SPEED_MPS
+                        vy = float(t[1][0]) * ROBOT_BASE_SPEED_MPS
 
-                        # Fixed scaling multiplication operator
-                        vx = t_dx * ROBOT_BASE_SPEED_MPS
-                        vy = t_dy * ROBOT_BASE_SPEED_MPS
+                        # Extract pure yaw angle change via relative geometry, avoiding R-matrix noise
+                        # R[1,0] and R[0,0] correspond to sin(yaw) and cos(yaw) in a planar rotation matrix
+                        delta_yaw = np.arctan2(R[1, 0], R[0, 0])
                         
-                        rvec, _ = cv2.Rodrigues(R)
-                        wz = float(rvec[2][0] / dt)
+                        # Calculate raw angular velocity (rad/s)
+                        raw_wz = float(delta_yaw / dt)
+                        
+                        # Apply low-pass exponential filter to reject tracking outliers
+                        filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
+                        wz = filtered_wz
+                    else:
+                        # Decay velocity safely if tracking degrades momentarily 
+                        filtered_wz *= 0.5
+                        wz = filtered_wz
 
-            # Log clean velocity variables into CSV
             writer.writerow([current_time, dt, vx, vy, wz, inliers_count])
-
             last_gray = gray
             last_time = current_time
 
@@ -134,7 +134,7 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     finally:
         vs.stop()
         csv_file.close()
-        print(f"[SUCCESS] Telemetry pipeline closed. Robot-ready log saved to: {os.path.abspath(output_csv)}")
+        print(f"[SUCCESS] Telemetry log saved to: {os.path.abspath(output_csv)}")
 
 if __name__ == "__main__":
     run_robot_vo_pipeline()
