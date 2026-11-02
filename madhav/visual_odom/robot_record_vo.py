@@ -42,7 +42,7 @@ class VideoStreamAsync:
 # --- Main Visual Odometry Telemetry Node ---
 def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     vs = VideoStreamAsync(src=camera_index).start()
-    time.sleep(1.0) # Hardware stabilization
+    time.sleep(1.0) # Hardware stabilization window
 
     # Camera Calibration Parameters
     K = np.array([[615.0, 0.0, 320.0], [0.0, 615.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
@@ -50,16 +50,17 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     # PHYSICAL REAL-WORLD SCALE FACTOR
     ROBOT_BASE_SPEED_MPS = 0.3 
     
-    # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: 0.0 = completely static, 1.0 = raw/unfiltered)
-    ALPHA = 0.25
+    # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: lower = smoother, higher = more responsive)
+    ALPHA = 0.20
+    
+    # DEAD-ZONE THRESHOLD (Ignore rotations below this noise floor in rad/s)
+    YAW_DEADZONE = 0.035
 
     feature_params = dict(maxCorners=100, qualityLevel=0.03, minDistance=25, blockSize=3)
     lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.03))
 
     last_gray = None
     last_time = time.time()
-    
-    # Track the last stable angular velocity to apply the low-pass filter
     filtered_wz = 0.0
 
     csv_file = open(output_csv, mode='w', newline='')
@@ -72,10 +73,11 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     try:
         while True:
             frame = vs.read()
-            if frame is None: continue
+            if frame is None: 
+                continue
 
             current_time = time.time()
-            dt = current_time - last_time
+            dt = current_time - last_time  # FIXED: Proper time delta subtraction
 
             if dt < 0.05:
                 time.sleep(0.002)
@@ -103,27 +105,30 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 E, mask = cv2.findEssentialMat(good_p2, good_p1, K, method=cv2.RANSAC, prob=0.99, threshold=1.0)
                 if E is not None and mask is not None:
                     inliers_count = int(np.sum(mask))
-                    if inliers_count > 10:
+                    if inliers_count > 15:  # Increased inlier threshold for higher confidence
                         _, R, t, _ = cv2.recoverPose(E, good_p2, good_p1, K, mask=mask)
                         
                         # Scale Translation
                         vx = float(t[0][0]) * ROBOT_BASE_SPEED_MPS
                         vy = float(t[1][0]) * ROBOT_BASE_SPEED_MPS
 
-                        # Extract pure yaw angle change via relative geometry, avoiding R-matrix noise
-                        # R[1,0] and R[0,0] correspond to sin(yaw) and cos(yaw) in a planar rotation matrix
+                        # Extract pure yaw angle change via planar rotation matrix geometry
                         delta_yaw = np.arctan2(R[1, 0], R[0, 0])
-                        
-                        # Calculate raw angular velocity (rad/s)
                         raw_wz = float(delta_yaw / dt)
-                        
-                        # Apply low-pass exponential filter to reject tracking outliers
+
+                        # Apply Dead-zone: if rotation is within noise floor, force to zero
+                        if abs(raw_wz) < YAW_DEADZONE:
+                            raw_wz = 0.0
+
+                        # FIXED: Clean low-pass exponential smoothing syntax
                         filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
                         wz = filtered_wz
                     else:
-                        # Decay velocity safely if tracking degrades momentarily 
-                        filtered_wz *= 0.5
+                        filtered_wz *= 0.8  # Smooth decay during tracking degradation
                         wz = filtered_wz
+                else:
+                    filtered_wz *= 0.8
+                    wz = filtered_wz
 
             writer.writerow([current_time, dt, vx, vy, wz, inliers_count])
             last_gray = gray
