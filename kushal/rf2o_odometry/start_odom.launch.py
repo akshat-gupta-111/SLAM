@@ -31,7 +31,7 @@ def generate_launch_description():
     tf_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0', '0', '0.625', '0', '0', '0', 'base_link', 'laser']
+        arguments=['0', '0', '0.625', '1.5708', '0', '0', 'base_link', 'laser']
     )
 
     # 4. C++ RF2O Node (Delayed by 3 seconds to let RPLiDAR initialize the motor and spin up /scan topic)
