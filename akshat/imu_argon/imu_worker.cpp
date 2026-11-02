@@ -15,6 +15,12 @@
 #define ACCEL_CONFIG 0x1C
 #define ACCEL_XOUT_H 0x3B
 
+// Helper function that checks the return value of write() to satisfy GCC and catch loose I2C wires
+bool write_reg(int file, uint8_t reg, uint8_t val) {
+    uint8_t buf[2] = {reg, val};
+    return (write(file, buf, 2) == 2);
+}
+
 int main() {
     // 1. Elevate thread to Real-Time Priority
     struct sched_param param;
@@ -30,23 +36,19 @@ int main() {
         return 1;
     }
 
-    // 3. Wake up MPU6050 (Use PLL with X-axis gyroscope reference for stability)
-    uint8_t wake_buf[2] = {PWR_MGMT_1, 0x01};
-    write(file, wake_buf, 2);
+    // 3. Configure MPU6050 registers with strict return-value verification
+    if (!write_reg(file, PWR_MGMT_1, 0x01)) { // Wake up + PLL with X-axis gyro reference
+        std::cerr << "Failed to wake MPU6050" << std::endl;
+        return 1;
+    }
     usleep(10000);
 
-    // 4. Enable Hardware Digital Low-Pass Filter (DLPF_CFG = 4 -> 21Hz cutoff)
-    // This physically filters out high-frequency chassis vibration from the spinning RPLIDAR!
-    uint8_t dlpf_buf[2] = {CONFIG, 0x04};
-    write(file, dlpf_buf, 2);
-
-    // 5. Explicitly lock Gyro to +/- 250 deg/s (131.0 LSB/deg/s)
-    uint8_t gyro_buf[2] = {GYRO_CONFIG, 0x00};
-    write(file, gyro_buf, 2);
-
-    // 6. Explicitly lock Accel to +/- 2g (16384.0 LSB/g)
-    uint8_t accel_buf[2] = {ACCEL_CONFIG, 0x00};
-    write(file, accel_buf, 2);
+    if (!write_reg(file, CONFIG, 0x04) ||       // Hardware DLPF = 21 Hz (filters RPLIDAR vibration)
+        !write_reg(file, GYRO_CONFIG, 0x00) ||  // +/- 250 deg/s
+        !write_reg(file, ACCEL_CONFIG, 0x00)) { // +/- 2g
+        std::cerr << "Failed to configure MPU6050 DLPF/scales" << std::endl;
+        return 1;
+    }
 
     // Disable stdio buffering for instant pipe throughput
     std::ios_base::sync_with_stdio(false);
