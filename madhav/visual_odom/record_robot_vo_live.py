@@ -41,7 +41,6 @@ class VideoStreamAsync:
 
 # --- Main Real-Time Visual Odometry Telemetry Node ---
 def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
-    # Initialize camera worker thread with error handling
     vs = VideoStreamAsync(src=camera_index)
     if not vs.stream.isOpened():
         print(f"[ERROR] Could not open camera source at index {camera_index}. Check USB connection.")
@@ -50,17 +49,13 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     vs.start()
     time.sleep(1.0) # Hardware stabilization window
 
-    # Camera Calibration Parameters (Replace with your exact calibration values if available)
+    # Camera Calibration Parameters
     K = np.array([[615.0, 0.0, 320.0], [0.0, 615.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
     
-    # PHYSICAL REAL-WORLD SCALE FACTOR
-    ROBOT_BASE_SPEED_MPS = 0.3 
-    
-    # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: lower = smoother, higher = more responsive)
-    ALPHA = 0.20
-    
-    # DEAD-ZONE THRESHOLD (Ignore rotations below this noise floor in rad/s)
-    YAW_DEADZONE = 0.035
+    # SCALING FACTORS
+    VELOCITY_SCALE = 0.005 # Scales pixel optical flow displacement into physical m/s
+    ALPHA = 0.20           # Low-pass filter smoothing coefficient
+    YAW_DEADZONE = 0.035   # Rotation dead-zone threshold
 
     feature_params = dict(maxCorners=100, qualityLevel=0.03, minDistance=25, blockSize=3)
     lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.03))
@@ -69,7 +64,6 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     last_time = time.time()
     filtered_wz = 0.0
 
-    # Open CSV telemetry log file
     try:
         csv_file = open(output_csv, mode='w', newline='')
         writer = csv.writer(csv_file)
@@ -80,9 +74,9 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
         return
 
     print("\n" + "="*70)
-    print(" LIVE VISUAL ODOMETRY TELEMETRY NODE ACTIVE ON JETSON ORIN")
-    print(" Move your robot around to record operational motion data.")
-    print(" Press Ctrl+C in the terminal to stop, save CSV, and compute covariance.")
+    print(" LIVE VISUAL ODOMETRY TELEMETRY NODE ACTIVE (OPTICALLY SCALED)")
+    print(" Push or drive your robot to verify live vx, vy, and wz updates.")
+    print(" Press Ctrl+C in terminal to stop and save CSV.")
     print("="*70 + "\n")
 
     try:
@@ -93,9 +87,8 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 continue
 
             current_time = time.time()
-            dt = current_time - last_time  # Time delta calculation
+            dt = current_time - last_time
 
-            # Differential frame-skipping gate (~20 Hz math processing rate)
             if dt < 0.05:
                 time.sleep(0.002)
                 continue
@@ -106,7 +99,6 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 last_time = current_time
                 continue
 
-            # Detect keypoints on reference frame
             p1 = cv2.goodFeaturesToTrack(last_gray, **feature_params)
             if p1 is None or len(p1) < 12:
                 print("[WARNING] Low texture / Insufficient features detected. Hold steady...", end="\r")
@@ -114,7 +106,6 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 last_time = current_time
                 continue
 
-            # Track keypoints using Lucas-Kanade Optical Flow
             p2, st, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, p1, None, **lk_params)
             good_p1 = p1[st == 1]
             good_p2 = p2[st == 1]
@@ -122,36 +113,43 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
             vx, vy, wz, inliers_count = 0.0, 0.0, 0.0, 0
 
             if len(good_p2) >= 8:
-                # Homography estimation for 2D planar ground robot motion
+                # 1. Homography for stable rotation (wz)
                 H, mask = cv2.findHomography(good_p1, good_p2, cv2.RANSAC, 3.0)
                 
                 if H is not None and mask is not None:
-                    inliers_count = int(np.sum(mask))
-                    if inliers_count > 15:  # High confidence threshold
-                        num_solutions, Rs, Ts, normals = cv2.decomposeHomographyMat(H, K)
+                    inliers_mask = (mask.ravel() == 1)
+                    inliers_count = int(np.sum(inliers_mask))
+                    
+                    if inliers_count > 15:
+                        # Extract rotation matrix approximation from Homography for wz
+                        # H matrix top-left represents affine rotation/scale
+                        # Decompose rotation angle directly from H or use standard 2D rotation extraction
+                        theta = np.arctan2(H[1, 0], H[0, 0])
+                        raw_wz = float(theta / dt)
+
+                        if abs(raw_wz) < YAW_DEADZONE:
+                            raw_wz = 0.0
+
+                        filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
+                        wz = filtered_wz
+
+                        # 2. Robust Optical Flow Displacement for Linear Velocities (vx, vy)
+                        valid_p1 = good_p1[inliers_mask]
+                        valid_p2 = good_p2[inliers_mask]
                         
-                        if num_solutions > 0:
-                            R_best = Rs[0]
-                            t_best = Ts[0]
+                        if len(valid_p2) > 5:
+                            displacements = valid_p2 - valid_p1 # shape (N, 1, 2) or (N, 2)
+                            displacements = displacements.reshape(-1, 2)
                             
-                            # Scale Translation safely using .item() to prevent NumPy deprecation warnings
-                            vx = float(t_best[0].item()) * ROBOT_BASE_SPEED_MPS
-                            vy = float(t_best[1].item()) * ROBOT_BASE_SPEED_MPS
+                            # Median pixel shift filters out outlier moving objects or shadows
+                            median_dx = np.median(displacements[:, 0])
+                            median_dy = np.median(displacements[:, 1])
 
-                            # Extract stable planar yaw rotation from rotation matrix
-                            delta_yaw = np.arctan2(R_best[1, 0], R_best[0, 0])
-                            raw_wz = float(delta_yaw / dt)
-
-                            # Apply Dead-zone: if rotation is within noise floor, force to zero
-                            if abs(raw_wz) < YAW_DEADZONE:
-                                raw_wz = 0.0
-
-                            # Apply low-pass exponential smoothing
-                            filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
-                            wz = filtered_wz
-                        else:
-                            filtered_wz *= 0.8
-                            wz = filtered_wz
+                            # Map pixel displacement to physical velocity (m/s)
+                            # Vertical pixel flow (dy) -> Forward velocity (vx)
+                            # Horizontal pixel flow (dx) -> Lateral velocity (vy)
+                            vx = float(median_dy / dt) * VELOCITY_SCALE
+                            vy = float(-median_dx / dt) * VELOCITY_SCALE
                     else:
                         filtered_wz *= 0.8
                         wz = filtered_wz
@@ -159,10 +157,9 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                     filtered_wz *= 0.8
                     wz = filtered_wz
 
-            # Write telemetry record to CSV
             writer.writerow([current_time, dt, vx, vy, wz, inliers_count])
 
-            # --- LIVE TERMINAL FEEDBACK ---
+            # Live terminal feedback
             print(f"[VO LIVE] Vx: {vx:+6.3f} m/s | Vy: {vy:+6.3f} m/s | Wz: {wz:+6.3f} rad/s | Inliers: {inliers_count:2d}", end="\r")
 
             last_gray = gray
@@ -174,7 +171,6 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
         vs.stop()
         csv_file.close()
         print(f"[SUCCESS] Operational telemetry log saved to: {os.path.abspath(output_csv)}")
-        print("[INFO] You can now run your calculate_covariance.py script on this moving dataset!")
 
 if __name__ == "__main__":
     run_robot_vo_pipeline()
