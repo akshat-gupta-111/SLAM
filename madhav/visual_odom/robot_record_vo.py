@@ -17,7 +17,8 @@ class VideoStreamAsync:
         self.started = False
 
     def start(self):
-        if self.started: return self
+        if self.started:
+            return self
         self.started = True
         self.thread = Thread(target=self.update, args=())
         self.thread.daemon = True
@@ -45,10 +46,12 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     time.sleep(1.0) # Hardware stabilization window
 
     # Camera Calibration Parameters
-    K = np.array([[615.0, 0.0, 320.0], [0.0, 615.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
-    
+    K = np.array([[615.0, 0.0, 320.0],
+                  [0.0, 615.0, 240.0],
+                  [0.0, 0.0, 1.0]], dtype=np.float32)
+
     # PHYSICAL REAL-WORLD SCALE FACTOR
-    ROBOT_BASE_SPEED_MPS = 0.3 
+    ROBOT_BASE_SPEED_MPS = 0.3
     
     # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: lower = smoother, higher = more responsive)
     ALPHA = 0.20
@@ -63,7 +66,10 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     last_time = time.time()
     filtered_wz = 0.0
 
-    csv_file = open(output_csv, mode='w', newline='')
+    # CHANGED: 'w+' mode opens the file for writing and updates, truncating the file to 0 length if it exists.
+    csv_file = open(output_csv, mode='w+', newline='')
+    csv_file.truncate(0)  # CHANGED: Explicitly forces any existing file contents to be completely wiped out.
+    
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp", "dt", "vx", "vy", "wz", "inliers"])
 
@@ -73,17 +79,18 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     try:
         while True:
             frame = vs.read()
-            if frame is None: 
+            if frame is None:
                 continue
 
             current_time = time.time()
             dt = current_time - last_time  # FIXED: Proper time delta subtraction
-
+            
             if dt < 0.05:
                 time.sleep(0.002)
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
             if last_gray is None:
                 last_gray = gray
                 last_time = current_time
@@ -105,21 +112,22 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 E, mask = cv2.findEssentialMat(good_p2, good_p1, K, method=cv2.RANSAC, prob=0.99, threshold=1.0)
                 if E is not None and mask is not None:
                     inliers_count = int(np.sum(mask))
+                    
                     if inliers_count > 15:  # Increased inlier threshold for higher confidence
                         _, R, t, _ = cv2.recoverPose(E, good_p2, good_p1, K, mask=mask)
                         
                         # Scale Translation
                         vx = float(t[0][0]) * ROBOT_BASE_SPEED_MPS
                         vy = float(t[1][0]) * ROBOT_BASE_SPEED_MPS
-
+                        
                         # Extract pure yaw angle change via planar rotation matrix geometry
                         delta_yaw = np.arctan2(R[1, 0], R[0, 0])
                         raw_wz = float(delta_yaw / dt)
-
+                        
                         # Apply Dead-zone: if rotation is within noise floor, force to zero
                         if abs(raw_wz) < YAW_DEADZONE:
                             raw_wz = 0.0
-
+                            
                         # FIXED: Clean low-pass exponential smoothing syntax
                         filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
                         wz = filtered_wz
@@ -129,6 +137,9 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
                 else:
                     filtered_wz *= 0.8
                     wz = filtered_wz
+            else:
+                filtered_wz *= 0.8
+                wz = filtered_wz
 
             writer.writerow([current_time, dt, vx, vy, wz, inliers_count])
             last_gray = gray
