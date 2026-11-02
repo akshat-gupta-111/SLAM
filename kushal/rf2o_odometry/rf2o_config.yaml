@@ -1,26 +1,14 @@
-# ==============================================================================
-# RF2O Measurement Noise Configuration Profile (Holonomic Mecanum Drive)
-# Generated from 6570 empirical tracking samples
-# Units: SI (meters, seconds, radians)
-# ==============================================================================
-
-rf2o_metadata:
-  sensor_source: "RPLiDAR A1 + rf2o_laser_odometry"
-  kinematic_model: "Holonomic / Mecanum"
-  update_rate_hz: 10.0
-
-ekf_laser_odometry_si:
-  # ----------------------------------------------------------------------------
-  # R_k (Measurement Noise Covariance Matrix)
-  # These values dictate how much the EKF should "trust" the LiDAR's velocity 
-  # calculations vs the IMU's predictions when the robot slips or drifts.
-  # ----------------------------------------------------------------------------
-  
-  velocity_variances:
-    vx_mps2: 0.000004894      # 4.894e-06 (m/s)^2 - Forward/Backward noise
-    vy_mps2: 0.000003122      # 3.122e-06 (m/s)^2 - Sideways strafe/drift noise
-    omega_rads2: 0.000023821  # 2.382e-05 (rad/s)^2 - Rotational tracking noise
-    
-  # Direct diagonal injection for EKF Python/C++ matrices
-  # Order: [vx, vy, omega]
-  R_matrix_diagonal: [0.000004894, 0.000003122, 0.000023821]
+rf2o_calibration:
+  frame_id: odom
+  child_frame_id: base_link
+  sample_rate_hz: 10.0
+  velocity_covariance:
+  - 0.000004894
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.000003122
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.000023821
