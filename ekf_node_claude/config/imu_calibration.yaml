@@ -1,0 +1,44 @@
+imu_calibration:
+  frame_id: imu_link
+  z_height_from_ground_m: 0.15
+  z_height_from_base_link_m: 0.115
+  sample_rate_hz: 180
+  accel_bias_m_s2:
+    x: -0.422176
+    y: 0.068608
+    z: 0.171945
+  gyro_bias_rad_s:
+    x: -0.167514
+    y: -0.005732
+    z: 0.025153
+  gyro_z_deadband_rad_s: 0.003255
+  orientation_covariance:
+  - 6.36e-06
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.234e-05
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-06
+  angular_velocity_covariance:
+  - 7.28e-06
+  - 5.73e-06
+  - 1.23e-06
+  - 5.73e-06
+  - 6.2e-06
+  - 9.6e-07
+  - 1.23e-06
+  - 9.6e-07
+  - 8.7e-07
+  linear_acceleration_covariance:
+  - 0.00118719
+  - -0.00071309
+  - 1.365e-05
+  - -0.00071309
+  - 0.00061138
+  - -1.23e-06
+  - 1.365e-05
+  - -1.23e-06
+  - 0.00020614

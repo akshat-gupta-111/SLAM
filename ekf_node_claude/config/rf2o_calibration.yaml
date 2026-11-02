@@ -1,0 +1,14 @@
+rf2o_calibration:
+  frame_id: odom
+  child_frame_id: base_link
+  sample_rate_hz: 10.0
+  velocity_covariance:
+  - 0.000004894
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.000003122
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.000023821

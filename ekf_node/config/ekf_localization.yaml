@@ -1,26 +1,74 @@
+# ---------------------------------------------------------------------------
+# EKF configuration.  RULES:
+#   * Every number that is a decimal MUST contain a ".", e.g. 1.0 not 1
+#     (ROS 2 treats 1 and 1.0 as different types and will refuse to start).
+#   * The top-level key must equal the node name.
+# ---------------------------------------------------------------------------
 ekf_localization_node:
   ros__parameters:
-    frequency: 30.0
-    two_d_mode: true
-    publish_tf: true
-    
-    map_frame: map
+    # ---- frames / outputs -------------------------------------------------
     odom_frame: odom
     base_link_frame: base_link
-    world_frame: odom
+    publish_tf: true              # we OWN odom->base_link. Set rf2o publish_tf:=false!
+    output_rate_hz: 30.0          # rate of /odometry/filtered and TF
+    diagnostics_rate_hz: 1.0
+    max_extrapolation_s: 0.2      # never predict the output further than this past the newest data
+    max_future_stamp_s: 0.1       # message stamps further in the future than this are replaced by receive time
+    history_window_s: 2.0         # how far back late measurements may still be inserted (must exceed worst sensor latency)
 
-    # --- Sensor 1: LiDAR Odometry (rf2o) ---
-    odom0: /odom_rf2o
-    odom0_config: [true,  true,  false,  # x,  y,  z
-                   false, false, false,  # roll, pitch, yaw
-                   false, false, false,  # vx, vy, vz
-                   false, false, false,  # vroll, vpitch, vyaw
-                   false, false, false]  # ax, ay, az
+    # ---- outlier gate recovery -------------------------------------------
+    gate:
+      max_consecutive_rejects: 20   # after this many rejections in a row from one sensor ...
+      recovery_inflation: 25.0      # ... let one through with its noise multiplied by this
 
-    # --- Sensor 2: IMU Data (MPU6050) ---
-    imu0: /imu/data
-    imu0_config: [false, false, false,  # x,  y,  z
-                  false, false, true,   # roll, pitch, yaw (Heading)
-                  false, false, false,  # vx, vy, vz
-                  false, false, true,   # vroll, vpitch, vyaw (Turn Speed)
-                  false, false, false]  # ax, ay, az
+    # ---- filter tuning (see guide chapter "Tuning with NIS") ---------------
+    filter:
+      q_pos: 1.0e-6          # m^2/s      unmodelled pose drift
+      q_yaw: 1.0e-6          # rad^2/s
+      q_vel: 0.1             # (m/s)^2/s  how quickly vx,vy may change   (~ accel_sigma^2)
+      q_wz: 1.0              # (rad/s)^2/s how quickly yaw-rate may change
+      q_bias: 1.0e-8         # (rad/s)^2/s gyro bias random walk
+      p0_pos: 1.0e-6
+      p0_yaw: 1.0e-6
+      p0_vel: 0.1
+      p0_wz: 0.1
+      p0_bias: 4.0e-4
+      max_predict_dt: 0.5    # s   total sensor silence longer than this => robot assumed stopped
+      velocity_timeout_s: 0.5  # s  no rf2o/VO for this long => linear velocity forced to 0
+      dropout_vel_std: 0.3   # m/s   uncertainty re-injected when velocity is lost
+      dropout_wz_std: 0.5    # rad/s
+
+    # ---- Sensor 1: IMU gyro (MPU6050) --------------------------------------
+    # Only gyro-z is fused. Orientation is integrated gyro (no magnetometer),
+    # so fusing it too would count the same information twice.
+    imu:
+      enabled: true
+      topic: /imu/data
+      calibration_file: ''          # filled by the launch file
+      fallback_gyro_variance: 8.7e-7
+      noise_scale: 10.0             # calibration was taken at rest; real noise is higher
+      gate_chi2: 10.83              # 99.9 % for 1 degree of freedom
+      stale_timeout_s: 0.2
+
+    # ---- Sensor 2: 2D LiDAR odometry (rf2o) --------------------------------
+    rf2o:
+      enabled: true
+      topic: /odom_rf2o
+      calibration_file: ''          # filled by the launch file
+      fallback_variance: [4.9e-6, 3.1e-6, 2.4e-5]   # vx, vy, wz
+      noise_scale: 25.0             # variance multiplier: stationary calibration under-states in-motion error
+      use_message_covariance: false
+      max_message_variance: 1000.0
+      gate_chi2: 16.27              # 99.9 % for 3 degrees of freedom
+      stale_timeout_s: 0.5
+
+    # ---- Sensor 3: Visual odometry ------------------------------------------
+    # PLACEHOLDER NUMBERS - measure yours (guide chapter "Calibrating VO noise").
+    visual_odom:
+      enabled: true
+      topic: /visual_odom           # <-- CHANGE to your VO topic
+      noise_std: [0.05, 0.05, 0.05] # std of vx [m/s], vy [m/s], wz [rad/s]
+      use_message_covariance: false
+      max_message_variance: 1000.0
+      gate_chi2: 16.27
+      stale_timeout_s: 0.5
