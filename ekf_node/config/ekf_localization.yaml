@@ -1,0 +1,26 @@
+ekf_localization_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true
+    publish_tf: true
+    
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom
+
+    # --- Sensor 1: LiDAR Odometry (rf2o) ---
+    odom0: /odom_rf2o
+    odom0_config: [true,  true,  false,  # x,  y,  z
+                   false, false, false,  # roll, pitch, yaw
+                   false, false, false,  # vx, vy, vz
+                   false, false, false,  # vroll, vpitch, vyaw
+                   false, false, false]  # ax, ay, az
+
+    # --- Sensor 2: IMU Data (MPU6050) ---
+    imu0: /imu/data
+    imu0_config: [false, false, false,  # x,  y,  z
+                  false, false, true,   # roll, pitch, yaw (Heading)
+                  false, false, false,  # vx, vy, vz
+                  false, false, true,   # vroll, vpitch, vyaw (Turn Speed)
+                  false, false, false]  # ax, ay, az
