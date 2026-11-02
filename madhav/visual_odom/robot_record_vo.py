@@ -17,8 +17,7 @@ class VideoStreamAsync:
         self.started = False
 
     def start(self):
-        if self.started:
-            return self
+        if self.started: return self
         self.started = True
         self.thread = Thread(target=self.update, args=())
         self.thread.daemon = True
@@ -40,18 +39,16 @@ class VideoStreamAsync:
         if self.stream.isOpened():
             self.stream.release()
 
-# --- Main Visual Odometry Telemetry Node ---
+# --- Main Visual Odometry Telemetry Node (Homography-Based) ---
 def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     vs = VideoStreamAsync(src=camera_index).start()
     time.sleep(1.0) # Hardware stabilization window
 
     # Camera Calibration Parameters
-    K = np.array([[615.0, 0.0, 320.0],
-                  [0.0, 615.0, 240.0],
-                  [0.0, 0.0, 1.0]], dtype=np.float32)
-
+    K = np.array([[615.0, 0.0, 320.0], [0.0, 615.0, 240.0], [0.0, 0.0, 1.0]], dtype=np.float32)
+    
     # PHYSICAL REAL-WORLD SCALE FACTOR
-    ROBOT_BASE_SPEED_MPS = 0.3
+    ROBOT_BASE_SPEED_MPS = 0.3 
     
     # LOW-PASS FILTER COEFFICIENT (Smoothing Factor: lower = smoother, higher = more responsive)
     ALPHA = 0.20
@@ -66,31 +63,27 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
     last_time = time.time()
     filtered_wz = 0.0
 
-    # CHANGED: 'w+' mode opens the file for writing and updates, truncating the file to 0 length if it exists.
-    csv_file = open(output_csv, mode='w+', newline='')
-    csv_file.truncate(0)  # CHANGED: Explicitly forces any existing file contents to be completely wiped out.
-    
+    csv_file = open(output_csv, mode='w', newline='')
     writer = csv.writer(csv_file)
     writer.writerow(["timestamp", "dt", "vx", "vy", "wz", "inliers"])
 
-    print("\n[INFO] Multithreaded Visual Odometry Node active on Jetson Orin.")
+    print("\n[INFO] Multithreaded Homography VO Node active on Jetson Orin.")
     print("[INFO] Headless operational state running. Press Ctrl+C in terminal to stop.")
 
     try:
         while True:
             frame = vs.read()
-            if frame is None:
+            if frame is None: 
                 continue
 
             current_time = time.time()
-            dt = current_time - last_time  # FIXED: Proper time delta subtraction
-            
+            dt = current_time - last_time  # Proper time delta subtraction
+
             if dt < 0.05:
                 time.sleep(0.002)
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
             if last_gray is None:
                 last_gray = gray
                 last_time = current_time
@@ -109,37 +102,44 @@ def run_robot_vo_pipeline(output_csv="robot_ekf_input.csv", camera_index=0):
             vx, vy, wz, inliers_count = 0.0, 0.0, 0.0, 0
 
             if len(good_p2) >= 8:
-                E, mask = cv2.findEssentialMat(good_p2, good_p1, K, method=cv2.RANSAC, prob=0.99, threshold=1.0)
-                if E is not None and mask is not None:
+                # --- HOMOGRAPHY REPLACEMENT FOR PLANAR GROUND ROBOT ---
+                # Computes 3x3 transformation matrix assuming features lie on a flat floor plane (Z = 0)
+                H, mask = cv2.findHomography(good_p1, good_p2, cv2.RANSAC, 3.0)
+                
+                if H is not None and mask is not None:
                     inliers_count = int(np.sum(mask))
-                    
-                    if inliers_count > 15:  # Increased inlier threshold for higher confidence
-                        _, R, t, _ = cv2.recoverPose(E, good_p2, good_p1, K, mask=mask)
+                    if inliers_count > 15:  # High confidence threshold
+                        # Decompose homography into rotation and translation solutions
+                        num_solutions, Rs, Ts, normals = cv2.decomposeHomographyMat(H, K)
                         
-                        # Scale Translation
-                        vx = float(t[0][0]) * ROBOT_BASE_SPEED_MPS
-                        vy = float(t[1][0]) * ROBOT_BASE_SPEED_MPS
-                        
-                        # Extract pure yaw angle change via planar rotation matrix geometry
-                        delta_yaw = np.arctan2(R[1, 0], R[0, 0])
-                        raw_wz = float(delta_yaw / dt)
-                        
-                        # Apply Dead-zone: if rotation is within noise floor, force to zero
-                        if abs(raw_wz) < YAW_DEADZONE:
-                            raw_wz = 0.0
+                        if num_solutions > 0:
+                            R_best = Rs[0]
+                            t_best = Ts[0]
                             
-                        # FIXED: Clean low-pass exponential smoothing syntax
-                        filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
-                        wz = filtered_wz
+                            # Scale Translation for linear velocities
+                            vx = float(t_best[0]) * ROBOT_BASE_SPEED_MPS
+                            vy = float(t_best[1]) * ROBOT_BASE_SPEED_MPS
+
+                            # Extract stable planar yaw rotation directly from rotation matrix
+                            delta_yaw = np.arctan2(R_best[1, 0], R_best[0, 0])
+                            raw_wz = float(delta_yaw / dt)
+
+                            # Apply Dead-zone: if rotation is within noise floor, force to zero
+                            if abs(raw_wz) < YAW_DEADZONE:
+                                raw_wz = 0.0
+
+                            # Apply low-pass exponential smoothing
+                            filtered_wz = (ALPHA * raw_wz) + ((1.0 - ALPHA) * filtered_wz)
+                            wz = filtered_wz
+                        else:
+                            filtered_wz *= 0.8
+                            wz = filtered_wz
                     else:
-                        filtered_wz *= 0.8  # Smooth decay during tracking degradation
+                        filtered_wz *= 0.8
                         wz = filtered_wz
                 else:
                     filtered_wz *= 0.8
                     wz = filtered_wz
-            else:
-                filtered_wz *= 0.8
-                wz = filtered_wz
 
             writer.writerow([current_time, dt, vx, vy, wz, inliers_count])
             last_gray = gray
