@@ -3,6 +3,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 import json
 import socket
+import sys
 import math
 
 class RF2OWorker(Node):
@@ -79,6 +80,10 @@ class RF2OWorker(Node):
             "vy": vy_local,      # Boom! Now we have real strafing data!
             "omega": omega
         }
+
+        output = f"\r🤖 [Live Odom] vx: {vx_local:+06.2f} | vy: {vy_local:+06.2f} | w: {omega:+06.2f}  "
+        sys.stdout.write(output)
+        sys.stdout.flush()
         
         try:
             self.sock.sendto(json.dumps(payload).encode('utf-8'), (self.udp_ip, self.udp_port))
