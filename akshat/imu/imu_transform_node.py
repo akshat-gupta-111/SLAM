@@ -70,26 +70,28 @@ try:
         alpha_z = (gz - last_gz) / dt
         last_gz = gz
 
-        # -----------------------------------------------------------------
-        # KINEMATIC LEVER-ARM COMPENSATION MECHANICS
+# -----------------------------------------------------------------
+        # 6-DOF KINEMATIC LEVER-ARM COMPENSATION MECHANICS (HOLONOMIC)
         # Formula: a_true = a_measured - (alpha x r) - (w x (w x r))
         # -----------------------------------------------------------------
-        # Tangential cross product components
+        # Tangential cross product components (Alpha x R)
         tangential_x = alpha_z * r_y
-        tangential_y = alpha_z * r_x
+        tangential_y = -alpha_z * r_x # Fixed direction for holonomic Y-axis slip
         
-        # Centripetal cross product coupling components (due to 15cm Z offset)
+        # Centripetal cross product coupling components (Omega x (Omega x R))
+        # Evaluated at IMU offset Z=15cm
         centripetal_x = gx * gz * r_z
         centripetal_y = gy * gz * r_z
         centripetal_z = (gx**2 + gy**2) * r_z
 
-        # Compute pure linear forces translating directly through base_link
+        # Compute pure linear forces translating directly through base_link center
+        # For a Mecanum drive, BOTH ax_true (forward) and ay_true (sideways strafe) are critical state inputs.
         ax_true = ax_meas - tangential_x - centripetal_x
-        ay_true = ay_meas + tangential_y - centripetal_y
+        ay_true = ay_meas - tangential_y - centripetal_y # Fixed algebraic sign for Y-axis
         az_true = az_meas + centripetal_z  # Compensate downward vertical swing
 
-        # Output the un-aliased tracking metrics for the SLAM backend
-        output = f"\r🤖 [Base Link] Accel m/s² -> X: {ax_true:+6.2f} Y: {ay_true:+6.2f} Z: {az_true:+6.2f}"
+        # Output the un-aliased tracking metrics for the 6-State SLAM backend
+        output = f"\r🤖 [Base Link Holonomic] Accel m/s² -> X(v_x): {ax_true:+6.2f} Y(v_y): {ay_true:+6.2f} Z: {az_true:+6.2f} YawRate(w): {gz:+6.2f}"
         sys.stdout.write(output)
         sys.stdout.flush()
 

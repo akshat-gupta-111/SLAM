@@ -58,18 +58,19 @@ static_calibration_offsets_si:
 
 # EKF Measurement Noise Covariance R_k and Process Noise Q_k (Strictly SI Units)
 ekf_Matrices_si:
-  # State vector order: [x (m), y (m), theta (rad), v (m/s), omega (rad/s)]^T
-  state_dimension: 5
+  # State vector order: [x (m), y (m), theta (rad), vx (m/s), vy (m/s), omega (rad/s)]^T
+  state_dimension: 6
 
-  # Initial state uncertainty diagonal P_0: [m^2, m^2, rad^2, (m/s)^2, (rad/s)^2]
-  initial_P_diagonal: [0.01, 0.01, 0.01, 0.01, 0.01]
+  # Initial state uncertainty diagonal P_0: [m^2, m^2, rad^2, (m/s)^2, (m/s)^2, (rad/s)^2]
+  initial_P_diagonal: [0.01, 0.01, 0.01, 0.01, 0.01, 0.01]
 
-  # Process Noise Q_k diagonal per second: [m^2, m^2, rad^2, (m/s)^2, (rad/s)^2]
-  process_noise_Q_diagonal: [0.001, 0.001, 0.0005, 0.01, 0.001]
+  # Process Noise Q_k diagonal per second: [m^2, m^2, rad^2, (m/s)^2, (m/s)^2, (rad/s)^2]
+  process_noise_Q_diagonal: [0.001, 0.001, 0.0005, 0.01, 0.01, 0.001]
 
-  # IMU Measurement Matrix H_k^imu (observes 5th state variable: omega)
+  # IMU Measurement Matrix H_k^imu (observes 6th state variable: omega)
+  # Since IMU provides rotational velocity, we map it to the 6th index (omega)
   imu_H_matrix:
-    - [0.0, 0.0, 0.0, 0.0, 1.0]
+    - [0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
   # IMU Measurement Noise Covariance R_k^imu in (rad/s)^2
   # Converted from 0.050617 (deg/s)^2 * (pi / 180)^2 = 1.54188e-5 (rad/s)^2
@@ -85,7 +86,7 @@ ekf_Matrices_si:
     x: 0.0000092473                      # from 0.030357 (deg/s)^2
     y: 0.0000076590                      # from 0.025143 (deg/s)^2
     z: 0.0000154188                      # from 0.050617 (deg/s)^2
-
+    
 # Stationary Verification Bounds in SI Units (Used by Stage 2 Verification Test)
 expected_stationary_bounds_si:
   accel_limits_mps2:
