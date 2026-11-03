@@ -53,7 +53,7 @@ ekf_localization_node:
     # ---- Sensor 2: 2D LiDAR odometry (rf2o) --------------------------------
     rf2o:
       enabled: true
-      topic: /odom_rf2o
+      topic: /odom_rf2o_corrected
       calibration_file: ''          # filled by the launch file
       fallback_variance: [4.9e-6, 3.1e-6, 2.4e-5]   # vx, vy, wz
       noise_scale: 25.0             # variance multiplier: stationary calibration under-states in-motion error
