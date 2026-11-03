@@ -25,7 +25,7 @@ class MapperUtilityNode(Node):
     On-Demand Room Mapping Node:
     - Takes /odometry/filtered (from ekf_node) and /scan (from Lidar)
     - Builds a 2D OccupancyGrid on /map in real-time
-    - Can pause/resume mapping anytime via /toggle_mapping or /start_mapping & /stop_mapping
+    - Can pause/resume mapping anytime via /start_mapping & /stop_mapping
     - Saves .pgm and .yaml files via /save_map service
     """
 
@@ -197,8 +197,6 @@ class MapperUtilityNode(Node):
         if not (0 <= rx_grid < self.grid_w and 0 <= ry_grid < self.grid_h):
             return
 
-        angle = msg.angle_min
-        # Downsample rays slightly if high density for smooth CPU usage on Jetson/Mac
         step = max(1, len(msg.ranges) // 180)
 
         for i in range(0, len(msg.ranges), step):
@@ -239,7 +237,6 @@ class MapperUtilityNode(Node):
         msg.info.origin.position.y = self.origin_y
         msg.info.origin.orientation.w = 1.0
 
-        # Convert log-odds to OccupancyGrid [-1, 0..100]
         grid = np.full((self.grid_h, self.grid_w), -1, dtype=np.int8)
         grid[self.log_odds > 0.4] = 100
         grid[self.log_odds < -0.4] = 0
@@ -257,41 +254,28 @@ class MapperUtilityNode(Node):
         pgm_path = os.path.join(self.map_save_dir, f"{map_name}.pgm")
         yaml_path = os.path.join(self.map_save_dir, f"{map_name}.yaml")
 
-        # Create image array: 205 = unknown, 254 = free, 0 = occupied
         img = np.full((self.grid_h, self.grid_w), 205, dtype=np.uint8)
         img[self.log_odds < -0.4] = 254
         img[self.log_odds > 0.4] = 0
 
-        # Flip vertically because PGM top-left is (0, height)
         img_flipped = np.flipud(img)
 
         with open(pgm_path, 'wb') as f:
-            header = f"P5
-# Created by slam_node
-{self.grid_w} {self.grid_h}
-255
-"
+            header = f"P5\n# Created by slam_node\n{self.grid_w} {self.grid_h}\n255\n"
             f.write(header.encode('ascii'))
             f.write(img_flipped.tobytes())
 
-        yaml_content = (
-            f"image: {map_name}.pgm
-"
-            f"mode: trinary
-"
-            f"resolution: {self.resolution}
-"
-            f"origin: [{self.origin_x}, {self.origin_y}, 0.0]
-"
-            f"negate: 0
-"
-            f"occupied_thresh: 0.65
-"
-            f"free_thresh: 0.25
-"
-        )
+        yaml_lines = [
+            f"image: {map_name}.pgm",
+            "mode: trinary",
+            f"resolution: {self.resolution}",
+            f"origin: [{self.origin_x}, {self.origin_y}, 0.0]",
+            "negate: 0",
+            "occupied_thresh: 0.65",
+            "free_thresh: 0.25",
+        ]
         with open(yaml_path, 'w') as f:
-            f.write(yaml_content)
+            f.write("\n".join(yaml_lines) + "\n")
 
         return pgm_path, yaml_path
 

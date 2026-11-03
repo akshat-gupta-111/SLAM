@@ -10,7 +10,7 @@ from nav_msgs.msg import OccupancyGrid
 
 class StandaloneMapSaver(Node):
     """
-    One-click CLI utility to grab the latest /map topic (from mapper_utility or slam_toolbox)
+    One-click CLI utility to grab the latest /map topic
     and save it directly as .pgm and .yaml files!
     Usage: ros2 run slam_node save_map [map_name]
     """
@@ -49,32 +49,21 @@ class StandaloneMapSaver(Node):
         yaml_path = os.path.join(self.save_dir, f"{self.map_name}.yaml")
 
         with open(pgm_path, 'wb') as f:
-            header = f"P5
-# Saved by slam_node save_map
-{w} {h}
-255
-"
+            header = f"P5\n# Saved by slam_node save_map\n{w} {h}\n255\n"
             f.write(header.encode('ascii'))
             f.write(img_flipped.tobytes())
 
-        yaml_content = (
-            f"image: {self.map_name}.pgm
-"
-            f"mode: trinary
-"
-            f"resolution: {res}
-"
-            f"origin: [{ox}, {oy}, 0.0]
-"
-            f"negate: 0
-"
-            f"occupied_thresh: 0.65
-"
-            f"free_thresh: 0.25
-"
-        )
+        yaml_lines = [
+            f"image: {self.map_name}.pgm",
+            "mode: trinary",
+            f"resolution: {res}",
+            f"origin: [{ox}, {oy}, 0.0]",
+            "negate: 0",
+            "occupied_thresh: 0.65",
+            "free_thresh: 0.25",
+        ]
         with open(yaml_path, 'w') as f:
-            f.write(yaml_content)
+            f.write("\n".join(yaml_lines) + "\n")
 
         self.get_logger().info(f"SUCCESS! Saved PGM: {pgm_path}")
         self.get_logger().info(f"SUCCESS! Saved YAML: {yaml_path}")

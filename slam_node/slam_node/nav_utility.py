@@ -37,7 +37,7 @@ class NavUtilityNode(Node):
     """
     All-in-One Localization & Checkpoint Navigation Node:
     1. Loads saved .pgm and .yaml map from ~/Desktop/SLAM/slam_node/maps/
-    2. Localizes robot using /odometry/filtered + /scan drift correction
+    2. Localizes robot using /odometry/filtered + /scan
     3. Publishes localized telemetry to /nav (Odometry) and /nav/status (String)
     4. Plans shortest obstacle-free path (A*) on the loaded .pgm map to any checkpoint sent on /nav/goal
     5. Drives robot via /cmd_vel with real-time Lidar obstacle avoidance
@@ -70,7 +70,6 @@ class NavUtilityNode(Node):
         self.goal_tol = float(self.get_parameter('goal_tolerance').value)
         self.obs_dist = float(self.get_parameter('obstacle_stop_distance').value)
 
-        # Map data
         self.map_loaded = False
         self.grid = None
         self.inflated_grid = None
@@ -80,7 +79,6 @@ class NavUtilityNode(Node):
         self.origin_x = -10.0
         self.origin_y = -10.0
 
-        # Localization state (odom + map offset correction)
         self.odom_x = 0.0
         self.odom_y = 0.0
         self.odom_yaw = 0.0
@@ -88,7 +86,6 @@ class NavUtilityNode(Node):
         self.map_offset_y = 0.0
         self.map_offset_yaw = 0.0
 
-        # Navigation state
         self.waypoints = []
         self.current_wp_idx = 0
         self.goal_yaw = None
@@ -96,14 +93,12 @@ class NavUtilityNode(Node):
         self.front_obstacle = False
         self.avoid_turn_dir = 0.0
 
-        # QoS
         map_qos = QoSProfile(
             depth=1,
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL
         )
 
-        # Publishers
         self.map_pub = self.create_publisher(OccupancyGrid, self.map_topic, map_qos)
         self.nav_odom_pub = self.create_publisher(Odometry, self.nav_topic, 20)
         self.nav_status_pub = self.create_publisher(String, '/nav/status', 10)
@@ -111,16 +106,13 @@ class NavUtilityNode(Node):
         self.cmd_vel_pub = self.create_publisher(Twist, self.cmd_vel_topic, 20)
         self.tf_broadcaster = TransformBroadcaster(self)
 
-        # Subscribers
         self.odom_sub = self.create_subscription(Odometry, self.odom_topic, self.odom_cb, 20)
         self.scan_sub = self.create_subscription(LaserScan, self.scan_topic, self.scan_cb, 10)
         self.goal_sub = self.create_subscription(PoseStamped, '/nav/goal', self.goal_cb, 10)
         self.rviz_goal_sub = self.create_subscription(PoseStamped, '/goal_pose', self.goal_cb, 10)
 
-        # Cancel navigation service
         self.stop_srv = self.create_service(Trigger, '/nav/cancel', self.cancel_nav_cb)
 
-        # Load saved PGM map if available
         self.load_saved_map()
 
         self.control_timer = self.create_timer(0.1, self.control_loop)
@@ -164,7 +156,6 @@ class NavUtilityNode(Node):
             self.grid[raw_unflipped >= 230] = 0
             self.grid[raw_unflipped <= 50] = 100
 
-            # Inflate obstacles by 3 cells (~15cm safety margin) for safe A* path planning
             self.inflated_grid = self.grid.copy()
             occ_y, occ_x = np.where(self.grid == 100)
             for dy in range(-3, 4):
@@ -208,7 +199,6 @@ class NavUtilityNode(Node):
 
         lx, ly, lyaw = self.get_localized_pose()
 
-        # Publish localized state on /nav
         nav_msg = Odometry()
         nav_msg.header.stamp = self.get_clock().now().to_msg()
         nav_msg.header.frame_id = 'map'
@@ -223,7 +213,6 @@ class NavUtilityNode(Node):
         nav_msg.twist = msg.twist
         self.nav_odom_pub.publish(nav_msg)
 
-        # Broadcast map -> odom TF
         t = TransformStamped()
         t.header.stamp = nav_msg.header.stamp
         t.header.frame_id = 'map'
@@ -238,7 +227,6 @@ class NavUtilityNode(Node):
         self.tf_broadcaster.sendTransform(t)
 
     def scan_cb(self, msg: LaserScan):
-        # Check front 60-degree cone for dynamic obstacles
         front_ranges = []
         left_ranges = []
         right_ranges = []
@@ -307,7 +295,6 @@ class NavUtilityNode(Node):
                     path_cells.append(current)
                     current = came_from[current]
                 path_cells.reverse()
-                # Downsample every 4 cells (~20cm) for smooth waypoint tracking
                 waypoints = [self.grid_to_world(cx, cy) for cx, cy in path_cells[::4]]
                 waypoints.append(goal_xy)
                 return waypoints
@@ -330,8 +317,8 @@ class NavUtilityNode(Node):
         return [goal_xy]
 
     def goal_cb(self, msg: PoseStamped):
-        gx = msg.pose.pose.position.x if hasattr(msg.pose, 'pose') else msg.pose.position.x
-        gy = msg.pose.pose.position.y if hasattr(msg.pose, 'pose') else msg.pose.position.y
+        gx = msg.pose.position.x
+        gy = msg.pose.position.y
         q = msg.pose.orientation
         self.goal_yaw = euler_from_quaternion(q.x, q.y, q.z, q.w)
 
@@ -340,7 +327,6 @@ class NavUtilityNode(Node):
         self.current_wp_idx = 0
         self.navigating = True
 
-        # Publish Path for Foxglove / RViz visualization
         path_msg = Path()
         path_msg.header.stamp = self.get_clock().now().to_msg()
         path_msg.header.frame_id = 'map'
@@ -375,13 +361,11 @@ class NavUtilityNode(Node):
         tx, ty = self.waypoints[self.current_wp_idx]
         dist = math.hypot(tx - lx, ty - ly)
 
-        # Check if waypoint reached
         if dist < self.goal_tol:
             if self.current_wp_idx < len(self.waypoints) - 1:
                 self.current_wp_idx += 1
                 return
             else:
-                # Final checkpoint reached!
                 self.navigating = False
                 self.cmd_vel_pub.publish(Twist())
                 status = String()
@@ -391,7 +375,6 @@ class NavUtilityNode(Node):
                 return
 
         cmd = Twist()
-        # Live obstacle avoidance
         if self.front_obstacle:
             cmd.linear.x = 0.0
             cmd.angular.z = 0.5 * self.avoid_turn_dir

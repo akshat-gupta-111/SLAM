@@ -1,3 +1,5 @@
+git 
+
 # Robot LiDAR Odometry Guide (RF2O on Mecanum Drive)
 
 Welcome! This document explains how our robot's **LiDAR Odometry System (Software Odometry)** works. We use an RPLiDAR A1 paired with the `rf2o_laser_odometry` package and a custom holonomic math wrapper to perfectly track our robot's forward, backward, sideways (strafing), and rotational movements.
