@@ -1,0 +1,68 @@
+# =============================================================================
+# SLAM Toolbox — Async Online Mapping Parameters
+# For: ROS 2 Humble | Jetson Nano | Mecanum Robot
+#
+# Mode: async_slam_toolbox_node (lighter on CPU than sync)
+# This node reads /scan + TF odom→base_link (from EKF) and builds the map.
+# It publishes /map and the TF map→odom.
+# =============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ── Solver (Ceres is the default and recommended) ──────────────────────
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    # ── Frame IDs — must match your TF tree ───────────────────────────────
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    use_map_saver: true
+
+    # ── Mode ──────────────────────────────────────────────────────────────
+    mode: mapping               # Use 'localization' after map is saved
+
+    # ── Logging ───────────────────────────────────────────────────────────
+    debug_logging: false
+    throttle_scans: 1           # Process every N-th scan (raise to 2-3 if CPU is hot)
+
+    # ── TF / Timing ───────────────────────────────────────────────────────
+    transform_publish_period: 0.02   # 50 Hz — how often map→odom TF is re-broadcast
+    map_update_interval: 5.0         # Publish /map every 5 s (saves CPU on Jetson)
+    transform_timeout: 0.5           # Max wait for a TF lookup (s)
+    tf_buffer_duration: 30.0         # How far back TF history is kept (s)
+    stack_size_to_use: 40000000      # 40 MB stack for Ceres — critical on Jetson
+
+    # ── Map resolution & range ─────────────────────────────────────────────
+    resolution: 0.05                 # 5 cm per grid cell
+    max_laser_range: 12.0            # Discard beams beyond this (m) — RPLiDAR A1 ≈ 12 m
+
+    # ── Scan acceptance thresholds ────────────────────────────────────────
+    minimum_time_interval: 0.5       # Ignore scans arriving faster than 0.5 s apart
+    minimum_travel_distance: 0.10    # Add scan only if robot moved ≥ 10 cm …
+    minimum_travel_heading: 0.175    # … or rotated ≥ 10° (0.175 rad)
+
+    # ── Scan matching ─────────────────────────────────────────────────────
+    use_scan_matching: true
+    use_scan_barycenter: true
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 10.0
+    link_match_minimum_response_fine: 0.1
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+
+    fine_search_angle_offset: 0.00349     # ~0.2°
+    coarse_search_angle_offset: 0.349     # ~20°
+    coarse_angle_resolution: 0.0349       # ~2° steps
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
+
+    # ── Interactive mode (lets you correct the map in RViz) ───────────────
+    enable_interactive_mode: true

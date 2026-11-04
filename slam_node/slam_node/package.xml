@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>slam_node</name>
+  <version>2.0.0</version>
+  <description>
+    Industry-standard SLAM mapping, map saving and checkpoint management
+    for a mecanum-drive robot running ROS 2 Humble on Jetson Nano.
+
+    Mapping  : SLAM Toolbox (async online mode)
+    Map save : nav2_map_server map_saver_cli
+    Checkpoints: TF map→base_link lookup → JSON file
+    Navigation: HALTED (not implemented in this version)
+  </description>
+
+  <maintainer email="kushalsoni9876@gmail.com">Kushal</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- Build tool -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- Runtime dependencies -->
+  <depend>rclpy</depend>
+  <depend>tf2_ros</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_srvs</depend>
+
+  <!-- SLAM Toolbox — the actual mapper -->
+  <depend>slam_toolbox</depend>
+
+  <!-- Map saving -->
+  <depend>nav2_map_server</depend>
+
+  <!-- Launch infrastructure -->
+  <depend>launch_ros</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
