@@ -34,7 +34,7 @@ ekf_localization_node:
       p0_wz: 0.1
       p0_bias: 4.0e-4
       max_predict_dt: 0.5    # s   total sensor silence longer than this => robot assumed stopped
-      velocity_timeout_s: 1  # s  no rf2o/VO for this long => linear velocity forced to 0
+      velocity_timeout_s: 1.0  # s  no rf2o/VO for this long => linear velocity forced to 0
       dropout_vel_std: 0.3   # m/s   uncertainty re-injected when velocity is lost
       dropout_wz_std: 0.5    # rad/s
 

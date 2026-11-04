@@ -1,0 +1,183 @@
+===== EKF CHECK [still2] Wed Nov  4 10:54:42 IST 2026 =====
+
+----- TOP CPU USERS (before the test added load) -----
+top - 10:54:16 up  1:51, 12 users,  load average: 6.61, 6.53, 5.51
+Tasks: 391 total,   2 running, 388 sleeping,   0 stopped,   1 zombie
+%Cpu(s): 91.1 us,  4.8 sy,  0.0 ni,  2.4 id,  0.0 wa,  0.8 hi,  0.8 si,  0.0 st
+MiB Mem :   7619.8 total,   3250.4 free,   2127.0 used,   2242.4 buff/cache
+MiB Swap:   3809.9 total,   3809.9 free,      0.0 used.   5223.8 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+  10418 dhruv     20   0  900904  68988  29308 R 505.6   0.9  52:45.41 ekf_localizatio
+  10369 dhruv     20   0  657972  26968  17536 S  16.7   0.3   2:42.55 rf2o_laser_odom
+  10295 dhruv     20   0  933900  59228  27924 S  11.1   0.8   0:59.67 python3
+  11096 dhruv     20   0   13284   3488   2620 R  11.1   0.0   0:00.04 top
+   1775 dhruv      9 -11 1749876  20292  13124 S   5.6   0.3   3:41.45 pulseaudio
+  10324 root     -81   0    5204   1620   1452 S   5.6   0.0   0:13.40 imu_worker
+  10327 dhruv     20   0  497644  36836  12992 S   5.6   0.5   0:17.56 ros2
+
+----- JETSON -----
+11-04-2026 10:54:18 RAM 2274/7620MB (lfb 8x4MB) SWAP 0/3810MB (cached 0MB) CPU [100%@1344,86%@1344,100%@1344,100%@1344,100%@1344,100%@1344] GR3D_FREQ 0% cpu@48.375C soc2@47.562C soc0@47.218C gpu@48.906C tj@48.906C soc1@48.343C VDD_IN 4577mW/4577mW VDD_CPU_GPU_CV 1669mW/1669mW VDD_SOC 1114mW/1113mW
+ 10:54:42 up  1:52, 12 users,  load average: 6.85, 6.59, 5.57
+
+----- NODES -----
+/CLaserOdometry2D
+/CLaserOdometry2DNode
+/calibrated_imu_node
+/ekf_localization_node
+/rf2o_worker
+/rplidar_node
+/static_transform_publisher_J1GzI684Oh5tjOzC
+/static_transform_publisher_Pj1s1n3wCzlWcKf1
+/static_transform_publisher_nuooxnjlhdQOQYh1
+/transform_listener_impl_aaaabe6da2c0
+
+----- /tf PUBLISHERS ONLY -----
+Endpoint type: PUBLISHER	Node name: ekf_localization_node
+Node namespace: /	Endpoint type: PUBLISHER
+
+----- rf2o publish_tf (must be False) -----
+Boolean value is: False
+
+----- /scan RATE -----
+average rate: 7.080
+	min: 0.134s max: 0.148s std dev: 0.00594s window: 33
+
+----- /odom_rf2o_corrected RATE -----
+average rate: 7.236
+	min: 0.086s max: 0.233s std dev: 0.05150s window: 16
+
+----- /odometry/filtered RATE -----
+average rate: 29.225
+	min: 0.014s max: 0.188s std dev: 0.01560s window: 150
+
+----- /scan DELAY -----
+average delay: 0.141
+	min: 0.133s max: 0.149s std dev: 0.00633s window: 27
+
+----- /odom_rf2o_corrected DELAY -----
+average delay: 0.309
+	min: 0.222s max: 0.414s std dev: 0.04624s window: 35
+
+----- /imu/data DELAY -----
+average delay: 0.001
+	min: 0.001s max: 0.004s std dev: 0.00025s window: 894
+
+----- DIAGNOSTICS -----
+header:
+  stamp:
+    sec: 1793769881
+    nanosec: 531377901
+  frame_id: ''
+status:
+- level: "\0"
+  name: ekf/imu
+  message: ok
+  hardware_id: /imu/data
+  values:
+  - key: rate_hz
+    value: '176.8'
+  - key: age_s
+    value: '0.01'
+  - key: accepted
+    value: '102521'
+  - key: rejected
+    value: '0'
+  - key: too_old
+    value: '0'
+  - key: nis_mean
+    value: '0.00'
+- level: "\0"
+  name: ekf/rf2o
+  message: ok
+  hardware_id: /odom_rf2o_corrected
+  values:
+  - key: rate_hz
+    value: '7.0'
+  - key: age_s
+    value: '0.15'
+  - key: accepted
+    value: '4483'
+  - key: rejected
+    value: '2'
+  - key: too_old
+    value: '2'
+  - key: nis_mean
+    value: '0.02'
+- level: "\0"
+  name: ekf/filter
+  message: ok
+  hardware_id: planar_ekf
+  values:
+  - key: pos_std_m
+    value: '0.360'
+  - key: yaw_std_deg
+    value: '20.91'
+  - key: gyro_bias_rad_s
+    value: '0.00565'
+---
+
+----- NaN/inf count in odometry (0 is good) -----
+0
+
+----- FILTERED ODOMETRY (covariance tables hidden) -----
+header:
+  stamp:
+    sec: 1793769879
+    nanosec: 833983798
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: 0.1198003574431127
+      y: 0.0802570956747061
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: -0.07887949308754608
+      w: 0.9968841585511587
+  covariance:
+twist:
+  twist:
+    linear:
+      x: 0.0034733509209008543
+      y: 0.000991510516773986
+      z: 0.0
+    angular:
+      x: 0.0
+      y: 0.0
+      z: -0.0008391667031601216
+  covariance:
+---
+
+----- TF odom -> base_link -----
+[INFO] [1793769878.102153151] [tf2_echo]: Waiting for transform odom ->  base_link: Invalid frame ID "odom" passed to canTransform argument target_frame - frame does not exist
+At time 1793769879.996669891
+- Translation: [0.117, 0.080, 0.000]
+- Rotation: in Quaternion (xyzw) [0.000, 0.000, -0.079, 0.997]
+- Rotation: in RPY (radian) [0.000, 0.000, -0.159]
+- Rotation: in RPY (degree) [0.000, 0.000, -9.087]
+- Matrix:
+  0.987  0.158  0.000  0.117
+ -0.158  0.987 -0.000  0.080
+ -0.000  0.000  1.000  0.000
+  0.000  0.000  0.000  1.000
+At time 1793769880.996341811
+
+----- EKF LOG WARNINGS / ERRORS -----
+log file: /home/dhruv/.ros/log/python3_10418_1793769238311.log
+WARN: 15   ERROR: 0
+[WARN] [1793769595.033409903] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769595.257986535] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769598.794277824] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769603.316008048] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769831.905634062] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769860.618178681] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769860.725083911] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769883.277720552] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769883.431721783] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+[WARN] [1793769884.876623018] [ekf_localization_node]: No linear-velocity sensor for 1.0s - assuming robot stopped.
+
+===== END =====

@@ -1,0 +1,239 @@
+===== EKF CHECK [still] Wed Nov  4 10:50:03 IST 2026 =====
+
+----- NODES -----
+/CLaserOdometry2D
+/CLaserOdometry2DNode
+/calibrated_imu_node
+/ekf_localization_node
+/rf2o_worker
+/rplidar_node
+/static_transform_publisher_J1GzI684Oh5tjOzC
+/static_transform_publisher_Pj1s1n3wCzlWcKf1
+/static_transform_publisher_nuooxnjlhdQOQYh1
+/transform_listener_impl_aaaabe6da2c0
+
+----- WHO PUBLISHES /tf (should be a few, none duplicated) -----
+Node name: CLaserOdometry2DNode
+Node namespace: /
+Node name: ekf_localization_node
+Node namespace: /
+Node name: transform_listener_impl_aaaabe6da2c0
+Node namespace: /
+Node name: ekf_localization_node
+Node namespace: /
+
+----- /scan : RATE -----
+	min: 0.007s max: 0.430s std dev: 0.11114s window: 8
+average rate: 6.627
+	min: 0.007s max: 0.430s std dev: 0.07932s window: 16
+----- /scan : DELAY (how old the timestamps are) -----
+	min: 0.002s max: 0.431s std dev: 0.07363s window: 19
+average delay: 0.146
+	min: 0.002s max: 0.431s std dev: 0.06324s window: 26
+
+----- /odom_rf2o_corrected : RATE -----
+	min: 0.095s max: 0.492s std dev: 0.11526s window: 14
+average rate: 6.189
+	min: 0.073s max: 0.492s std dev: 0.11024s window: 21
+----- /odom_rf2o_corrected : DELAY (how old the timestamps are) -----
+	min: 0.189s max: 0.431s std dev: 0.06298s window: 18
+average delay: 0.339
+	min: 0.189s max: 0.431s std dev: 0.06698s window: 25
+
+----- /imu/data : RATE -----
+  File "/opt/ros/humble/lib/python3.10/site-packages/ros2cli/cli.py", line 97, in main
+    rc = str(e)
+KeyboardInterrupt
+----- /imu/data : DELAY (how old the timestamps are) -----
+	min: 0.001s max: 0.003s std dev: 0.00023s window: 356
+average delay: 0.001
+	min: 0.001s max: 0.004s std dev: 0.00024s window: 536
+
+----- /odometry/filtered : RATE -----
+	min: 0.009s max: 0.094s std dev: 0.01365s window: 57
+average rate: 27.103
+	min: 0.009s max: 0.094s std dev: 0.01328s window: 85
+----- /odometry/filtered : DELAY (how old the timestamps are) -----
+	min: 0.002s max: 0.009s std dev: 0.00168s window: 49
+average delay: 0.004
+	min: 0.002s max: 0.013s std dev: 0.00197s window: 76
+
+----- DIAGNOSTICS (EKF's own report) -----
+header:
+  stamp:
+    sec: 1793769599
+    nanosec: 542098291
+  frame_id: ''
+status:
+- level: "\0"
+  name: ekf/imu
+  message: ok
+  hardware_id: /imu/data
+  values:
+  - key: rate_hz
+    value: '118.2'
+  - key: age_s
+    value: '0.02'
+  - key: accepted
+    value: '58900'
+  - key: rejected
+    value: '0'
+  - key: too_old
+    value: '0'
+  - key: nis_mean
+    value: '0.00'
+- level: "\0"
+  name: ekf/rf2o
+  message: ok
+  hardware_id: /odom_rf2o_corrected
+  values:
+  - key: rate_hz
+    value: '6.3'
+  - key: age_s
+    value: '0.02'
+  - key: accepted
+    value: '2508'
+  - key: rejected
+    value: '1'
+  - key: too_old
+    value: '2'
+  - key: nis_mean
+    value: '0.01'
+- level: "\0"
+  name: ekf/filter
+  message: ok
+  hardware_id: planar_ekf
+  values:
+  - key: pos_std_m
+    value: '0.268'
+  - key: yaw_std_deg
+    value: '15.62'
+  - key: gyro_bias_rad_s
+    value: '0.00602'
+---
+
+----- FILTERED ODOMETRY (one message) -----
+header:
+  stamp:
+    sec: 1793769598
+    nanosec: 771134539
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: 0.11074466490294767
+      y: 0.0886195477802502
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: -0.07537736892647803
+      w: 0.9971550793400802
+  covariance:
+  - 0.09957888545309375
+  - -0.00028922736588606415
+  - 0.0
+  - 0.0
+  - 0.0
+  - -0.0020241026864605384
+  - -0.00028922736588606415
+  - 0.0973278384287586
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0016952427899288728
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - -0.0020241026864605384
+  - 0.0016952427899288728
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.07427294628692412
+twist:
+  twist:
+    linear:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    angular:
+      x: 0.0
+      y: 0.0
+      z: -0.0013288547039653961
+  covariance:
+  - 0.19693358181229556
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.19688958140197035
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 1.0e-09
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.10406589385069434
+---
+
+----- NaN / inf in odometry? (count, 0 is good) -----
+0
+
+----- TF odom -> base_link -----
+[INFO] [1793769594.988804689] [tf2_echo]: Waiting for transform odom ->  base_link: Invalid frame ID "odom" passed to canTransform argument target_frame - frame does not exist
+[INFO] [1793769596.769593186] [tf2_echo]: Waiting for transform odom ->  base_link: Could not find a connection between 'odom' and 'base_link' because they are not part of the same tree.Tf has two or more unconnected trees.
+[INFO] [1793769597.607976571] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+
+----- CPU / MEMORY -----
+11-04-2026 10:49:55 RAM 2495/7620MB (lfb 6x4MB) SWAP 0/3810MB (cached 0MB) CPU [100%@1344,100%@1344,100%@1344,100%@1344,100%@1344,100%@1344] GR3D_FREQ 0% cpu@48.812C soc2@47.75C soc0@47.156C gpu@49.093C tj@48.968C soc1@48.468C VDD_IN 5405mW/5497mW VDD_CPU_GPU_CV 2103mW/2182mW VDD_SOC 1192mW/1192mW
+11-04-2026 10:49:56 RAM 2581/7620MB (lfb 4x4MB) SWAP 0/3810MB (cached 0MB) CPU [100%@1344,100%@1344,100%@1344,100%@1344,100%@1344,100%@1344] GR3D_FREQ 0% cpu@48.937C soc2@47.75C soc0@47.187C gpu@48.937C tj@48.937C soc1@48.343C VDD_IN 5564mW/5514mW VDD_CPU_GPU_CV 2222mW/2192mW VDD_SOC 1192mW/1192mW
+ 10:50:06 up  1:47, 11 users,  load average: 9.31, 6.37, 5.16
+
+----- EKF LOG WARNINGS / ERRORS -----
+log file: build
+grep: build: Is a directory
+grep: build: Is a directory
+WARN count: 0   ERROR count: 0
+grep: build: Is a directory
+
+===== END =====
