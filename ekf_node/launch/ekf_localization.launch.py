@@ -20,6 +20,11 @@ def generate_launch_description():
             name="ekf_localization_node",   # must match the YAML's top-level key
             output="screen",
             emulate_tty=True,
+            additional_env={
+                "OPENBLAS_NUM_THREADS": "1",
+                "OMP_NUM_THREADS": "1",
+                "MKL_NUM_THREADS": "1",
+            },
             parameters=[
                 os.path.join(cfg, "ekf_localization.yaml"),
                 {   # later entries override the YAML

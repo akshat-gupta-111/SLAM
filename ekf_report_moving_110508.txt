@@ -1,0 +1,173 @@
+===== EKF CHECK [moving] Wed Nov  4 11:05:34 IST 2026 =====
+
+----- TOP CPU USERS (before the test added load) -----
+top - 11:05:09 up  2:02, 12 users,  load average: 2.18, 3.26, 4.45
+Tasks: 391 total,   3 running, 387 sleeping,   0 stopped,   1 zombie
+%Cpu(s): 22.3 us,  8.3 sy,  1.7 ni, 66.1 id,  0.0 wa,  0.8 hi,  0.8 si,  0.0 st
+MiB Mem :   7619.8 total,   3125.8 free,   2129.1 used,   2364.9 buff/cache
+MiB Swap:   3809.9 total,   3809.9 free,      0.0 used.   5221.8 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+  11455 dhruv     20   0  695192  67368  30424 R  66.7   0.9   1:41.50 ekf_localizatio
+  10369 dhruv     20   0  658068  28504  18980 S  50.0   0.4   6:02.64 rf2o_laser_odom
+  10295 dhruv     20   0  933900  59240  27924 S  11.1   0.8   2:05.83 python3
+  10327 dhruv     20   0  497644  36836  12992 S  11.1   0.5   0:36.57 ros2
+    549 root       0 -20       0      0      0 I   5.6   0.0   0:01.12 kworker/u13:2-hci0
+    746 root      rt   0       0      0      0 R   5.6   0.0   1:48.32 sugov:0
+   3171 dhruv     20   0  495172  29660  21760 S   5.6   0.4   0:00.74 update-notifier
+
+----- JETSON -----
+11-04-2026 11:05:11 RAM 2277/7620MB (lfb 7x4MB) SWAP 0/3810MB (cached 0MB) CPU [27%@729,17%@729,23%@729,11%@729,9%@883,52%@883] GR3D_FREQ 0% cpu@46.281C soc2@45.875C soc0@45.718C gpu@47.281C tj@47.343C soc1@46.843C VDD_IN 3980mW/4020mW VDD_CPU_GPU_CV 955mW/995mW VDD_SOC 1114mW/1114mW
+ 11:05:34 up  2:03, 12 users,  load average: 2.67, 3.29, 4.43
+
+----- NODES -----
+/CLaserOdometry2D
+/CLaserOdometry2DNode
+/calibrated_imu_node
+/ekf_localization_node
+/rf2o_worker
+/rplidar_node
+/static_transform_publisher_J1GzI684Oh5tjOzC
+/static_transform_publisher_Pj1s1n3wCzlWcKf1
+/static_transform_publisher_nuooxnjlhdQOQYh1
+/transform_listener_impl_aaaabe6da2c0
+
+----- /tf PUBLISHERS ONLY -----
+Endpoint type: PUBLISHER	Node name: ekf_localization_node
+Node namespace: /	Endpoint type: PUBLISHER
+
+----- rf2o publish_tf (must be False) -----
+Boolean value is: False
+
+----- /scan RATE -----
+average rate: 7.102
+	min: 0.132s max: 0.150s std dev: 0.00619s window: 41
+
+----- /odom_rf2o_corrected RATE -----
+average rate: 7.756
+	min: 0.000s max: 0.219s std dev: 0.06882s window: 24
+
+----- /odometry/filtered RATE -----
+average rate: 29.994
+	min: 0.019s max: 0.048s std dev: 0.00427s window: 154
+
+----- /scan DELAY -----
+average delay: 0.142
+	min: 0.133s max: 0.151s std dev: 0.00613s window: 42
+
+----- /odom_rf2o_corrected DELAY -----
+average delay: 0.296
+	min: 0.242s max: 0.349s std dev: 0.03003s window: 34
+
+----- /imu/data DELAY -----
+average delay: 0.001
+	min: 0.001s max: 0.005s std dev: 0.00038s window: 709
+
+----- DIAGNOSTICS -----
+header:
+  stamp:
+    sec: 1793770531
+    nanosec: 606616310
+  frame_id: ''
+status:
+- level: "\0"
+  name: ekf/imu
+  message: ok
+  hardware_id: /imu/data
+  values:
+  - key: rate_hz
+    value: '185.1'
+  - key: age_s
+    value: '0.00'
+  - key: accepted
+    value: '34012'
+  - key: rejected
+    value: '0'
+  - key: too_old
+    value: '0'
+  - key: nis_mean
+    value: '0.00'
+- level: "\0"
+  name: ekf/rf2o
+  message: ok
+  hardware_id: /odom_rf2o_corrected
+  values:
+  - key: rate_hz
+    value: '7.1'
+  - key: age_s
+    value: '0.03'
+  - key: accepted
+    value: '1372'
+  - key: rejected
+    value: '0'
+  - key: too_old
+    value: '0'
+  - key: nis_mean
+    value: '0.03'
+- level: "\0"
+  name: ekf/filter
+  message: ok
+  hardware_id: planar_ekf
+  values:
+  - key: pos_std_m
+    value: '0.190'
+  - key: yaw_std_deg
+    value: '11.12'
+  - key: gyro_bias_rad_s
+    value: '0.00508'
+---
+
+----- NaN/inf count in odometry (0 is good) -----
+0
+
+----- FILTERED ODOMETRY (covariance tables hidden) -----
+header:
+  stamp:
+    sec: 1793770531
+    nanosec: 604706836
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: 0.024474248671521284
+      y: 0.0038931192536227318
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.03602338972042622
+      w: 0.9993509470616667
+  covariance:
+twist:
+  twist:
+    linear:
+      x: 0.0008307503288942388
+      y: 0.0009463510925810776
+      z: 0.0
+    angular:
+      x: 0.0
+      y: 0.0
+      z: -0.00012053932420944284
+  covariance:
+---
+
+----- TF odom -> base_link -----
+[INFO] [1793770530.235289199] [tf2_echo]: Waiting for transform odom ->  base_link: Invalid frame ID "odom" passed to canTransform argument target_frame - frame does not exist
+At time 1793770531.171109272
+- Translation: [0.024, 0.003, 0.000]
+- Rotation: in Quaternion (xyzw) [0.000, 0.000, 0.036, 0.999]
+- Rotation: in RPY (radian) [0.000, -0.000, 0.072]
+- Rotation: in RPY (degree) [0.000, -0.000, 4.102]
+- Matrix:
+  0.997 -0.072  0.000  0.024
+  0.072  0.997  0.000  0.003
+  0.000  0.000  1.000  0.000
+  0.000  0.000  0.000  1.000
+At time 1793770532.171081317
+
+----- EKF LOG WARNINGS / ERRORS -----
+log file: /home/dhruv/.ros/log/python3_11455_1793770338406.log
+WARN: 0   ERROR: 0
+
+===== END =====
