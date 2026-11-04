@@ -34,7 +34,7 @@ ekf_localization_node:
       p0_wz: 0.1
       p0_bias: 4.0e-4
       max_predict_dt: 0.5    # s   total sensor silence longer than this => robot assumed stopped
-      velocity_timeout_s: 0.5  # s  no rf2o/VO for this long => linear velocity forced to 0
+      velocity_timeout_s: 1  # s  no rf2o/VO for this long => linear velocity forced to 0
       dropout_vel_std: 0.3   # m/s   uncertainty re-injected when velocity is lost
       dropout_wz_std: 0.5    # rad/s
 
@@ -53,7 +53,7 @@ ekf_localization_node:
     # ---- Sensor 2: 2D LiDAR odometry (rf2o) --------------------------------
     rf2o:
       enabled: true
-      topic: /odom_rf2o
+      topic: /odom_rf2o_corrected
       calibration_file: ''          # filled by the launch file
       fallback_variance: [4.9e-6, 3.1e-6, 2.4e-5]   # vx, vy, wz
       noise_scale: 25.0             # variance multiplier: stationary calibration under-states in-motion error
@@ -65,7 +65,7 @@ ekf_localization_node:
     # ---- Sensor 3: Visual odometry ------------------------------------------
     # PLACEHOLDER NUMBERS - measure yours (guide chapter "Calibrating VO noise").
     visual_odom:
-      enabled: true
+      enabled: false
       topic: /visual_odom           # <-- CHANGE to your VO topic
       noise_std: [0.05, 0.05, 0.05] # std of vx [m/s], vy [m/s], wz [rad/s]
       use_message_covariance: false
