@@ -1,0 +1,4 @@
+Invoking command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup': /usr/bin/cmake /home/dhruv/Desktop/SLAM/madhav/robot_vo_bringup -DCMAKE_INSTALL_PREFIX=/home/dhruv/Desktop/SLAM/madhav/install/robot_vo_bringup
+Invoked command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup' returned '0': /usr/bin/cmake /home/dhruv/Desktop/SLAM/madhav/robot_vo_bringup -DCMAKE_INSTALL_PREFIX=/home/dhruv/Desktop/SLAM/madhav/install/robot_vo_bringup
+Invoking command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup': /usr/bin/cmake --build /home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup -- -j6 -l6
+Invoked command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup' returned '0': /usr/bin/cmake --build /home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup -- -j6 -l6

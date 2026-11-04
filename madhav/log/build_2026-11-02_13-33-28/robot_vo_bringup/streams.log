@@ -1,0 +1,32 @@
+[0.023s] Invoking command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup': /usr/bin/cmake /home/dhruv/Desktop/SLAM/madhav/robot_vo_bringup -DCMAKE_INSTALL_PREFIX=/home/dhruv/Desktop/SLAM/madhav/install/robot_vo_bringup
+[0.155s] [33mCMake Warning (dev) in CMakeLists.txt:
+[0.156s]   No project() command is present.  The top-level CMakeLists.txt file must
+[0.156s]   contain a literal, direct call to the project() command.  Add a line of
+[0.156s]   code such as
+[0.156s] 
+[0.157s]     project(ProjectName)
+[0.157s] 
+[0.157s]   near the top of the file, but after cmake_minimum_required().
+[0.157s] 
+[0.157s]   CMake is pretending there is a "project(Project)" command on the first
+[0.157s]   line.
+[0.157s] This warning is for project developers.  Use -Wno-dev to suppress it.
+[0.157s] [0m
+[0.717s] -- The C compiler identification is GNU 11.4.0
+[1.165s] -- The CXX compiler identification is GNU 11.4.0
+[1.201s] -- Detecting C compiler ABI info
+[1.381s] -- Detecting C compiler ABI info - done
+[1.404s] -- Check for working C compiler: /usr/bin/cc - skipped
+[1.410s] -- Detecting C compile features
+[1.412s] -- Detecting C compile features - done
+[1.424s] -- Detecting CXX compiler ABI info
+[1.620s] -- Detecting CXX compiler ABI info - done
+[1.641s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[1.642s] -- Detecting CXX compile features
+[1.644s] -- Detecting CXX compile features - done
+[1.648s] -- Configuring done
+[1.653s] -- Generating done
+[1.656s] -- Build files have been written to: /home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup
+[1.669s] Invoked command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup' returned '0': /usr/bin/cmake /home/dhruv/Desktop/SLAM/madhav/robot_vo_bringup -DCMAKE_INSTALL_PREFIX=/home/dhruv/Desktop/SLAM/madhav/install/robot_vo_bringup
+[1.677s] Invoking command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup': /usr/bin/cmake --build /home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup -- -j6 -l6
+[1.781s] Invoked command in '/home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup' returned '0': /usr/bin/cmake --build /home/dhruv/Desktop/SLAM/madhav/build/robot_vo_bringup -- -j6 -l6
